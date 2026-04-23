@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Griekse Wijn Sommelier — Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  /* ── Demo page background ── */
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #f0f4f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Sarabun', sans-serif;
+  }
+  .demo-hint {
+    color: #707070;
+    font-size: 14px;
+    letter-spacing: .3px;
+    user-select: none;
+    font-family: 'Sarabun', sans-serif;
+  }
+
+  /* ═══════════════════════════════════════════
+     WIDGET STYLES  (everything prefixed s-)
+     Huisstijl: Proef Griekenland
+     Blauw: #4273bd  |  Geel: #ffcc00  |  Wit: #fff
+  ═══════════════════════════════════════════ */
+  :root {
+    --s-bg:       #ffffff;
+    --s-surface:  #f5f7fb;
+    --s-blue:     #4273bd;
+    --s-blue-dk:  #2f5ca0;
+    --s-blue-lt:  #cddbef;
+    --s-yellow:   #ffcc00;
+    --s-yellow-dk:#e6b800;
+    --s-yellow-lt:#fff8d6;
+    --s-text:     #000000;
+    --s-muted:    #707070;
+    --s-border:   #dde3ef;
+    --s-radius:   14px;
+  }
+
+  /* ── Trigger button ── */
+  #s-trigger {
+    position: fixed;
+    bottom: 26px; right: 26px;
+    background: var(--s-blue);
+    color: #fff;
+    border: none;
+    border-radius: 50px;
+    padding: 13px 22px;
+    font-size: 15px;
+    font-family: 'Sarabun', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    z-index: 9998;
+    box-shadow: 0 6px 24px rgba(73,120,188,.45);
+    display: flex; align-items: center; gap: 9px;
+    transition: transform .25s, box-shadow .25s, background .2s;
+  }
+  #s-trigger:hover {
+    background: var(--s-blue-dk);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 32px rgba(73,120,188,.6);
+  }
+
+  /* ── Overlay ── */
+  #s-overlay {
+    position: fixed; inset: 0;
+    background: rgba(26,35,51,.55);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity .35s;
+  }
+  #s-overlay.open { opacity: 1; pointer-events: all; }
+
+  /* ── Modal ── */
+  #s-modal {
+    background: var(--s-bg);
+    border: 1px solid var(--s-border);
+    border-radius: var(--s-radius);
+    width: min(680px, 94vw);
+    max-height: 92vh;
+    overflow-y: auto;
+    padding: 36px 40px 40px;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(26,35,51,.18);
+    scrollbar-width: thin;
+    scrollbar-color: var(--s-border) transparent;
+    font-kerning: normal;
+    text-rendering: optimizeLegibility;
+    -webkit-font-feature-settings: "kern" 1, "liga" 1;
+    font-feature-settings: "kern" 1, "liga" 1;
+    letter-spacing: 0.015em;
+  }
+  #s-modal::-webkit-scrollbar { width: 5px; }
+  #s-modal::-webkit-scrollbar-thumb { background: var(--s-border); border-radius: 4px; }
+
+  /* ── Modal top accent band ── */
+  #s-modal::before {
+    content: '';
+    display: block;
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--s-yellow), var(--s-yellow-dk));
+    border-radius: var(--s-radius) var(--s-radius) 0 0;
+  }
+
+  /* ── Close ── */
+  #s-close {
+    position: absolute; top: 16px; right: 20px;
+    background: none; border: none;
+    color: var(--s-muted); font-size: 20px;
+    cursor: pointer; line-height: 1;
+    transition: color .2s;
+  }
+  #s-close:hover { color: var(--s-text); }
+
+  /* ── Progress bar ── */
+  .s-progress {
+    display: flex; gap: 5px;
+    margin-bottom: 30px;
+  }
+  .s-dot {
+    flex: 1; height: 3px; border-radius: 2px;
+    background: var(--s-border);
+    transition: background .4s;
+  }
+  .s-dot.done  { background: rgba(255,204,0,.4); }
+  .s-dot.active { background: var(--s-yellow); }
+
+  /* ── Step header ── */
+  .s-label {
+    font-size: 11px; color: var(--s-muted);
+    text-transform: uppercase; letter-spacing: 2.5px;
+    font-weight: 600; margin-bottom: 8px;
+  }
+  .s-title {
+    font-size: 24px; color: var(--s-text);
+    font-family: 'Sarabun', sans-serif; font-weight: 600;
+    line-height: 1.3; margin-bottom: 6px;
+  }
+  .s-sub {
+    font-size: 13.5px; color: var(--s-muted);
+    margin-bottom: 26px;
+  }
+
+  /* ── Step wrapper & transition ── */
+  .s-step { animation: sStepIn .3s ease both; }
+  @keyframes sStepIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── CHIPS (step 1) ── */
+  .s-chip-groups { display: flex; flex-direction: column; gap: 10px; }
+  .s-chip-group {
+    border: 1.5px solid var(--s-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: var(--s-surface);
+    transition: border-color .2s;
+  }
+  .s-chip-group:has(.s-chip.on) { border-color: var(--s-yellow-dk); }
+  .s-chip-group-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 10px;
+  }
+  .s-chip-group-icon { font-size: 18px; line-height: 1; }
+  .s-chip-group-label {
+    font-size: 11px; color: var(--s-muted);
+    text-transform: uppercase; letter-spacing: 2px;
+    font-weight: 600;
+  }
+  .s-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .s-chip {
+    padding: 7px 15px;
+    border: 1.5px solid var(--s-border);
+    border-radius: 50px;
+    color: var(--s-text); font-size: 13px;
+    cursor: pointer; background: transparent;
+    transition: all .2s;
+    white-space: nowrap;
+    font-family: 'Sarabun', sans-serif;
+  }
+  .s-chip:hover { border-color: var(--s-yellow-dk); background: var(--s-yellow-lt); color: var(--s-text); }
+  .s-chip.on {
+    background: var(--s-yellow); border-color: var(--s-yellow-dk);
+    color: var(--s-text); font-weight: 600;
+  }
+
+  /* ── ICON CARDS (steps 2 & 3) ── */
+  .s-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+  }
+  .s-card {
+    border: 1.5px solid var(--s-border);
+    border-radius: 14px; padding: 18px 10px;
+    text-align: center; cursor: pointer;
+    background: var(--s-surface);
+    transition: all .22s;
+  }
+  .s-card:hover {
+    border-color: var(--s-yellow-dk);
+    background: var(--s-yellow-lt);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 16px rgba(255,204,0,.2);
+  }
+  .s-card.on {
+    border-color: var(--s-yellow-dk);
+    background: var(--s-yellow);
+    box-shadow: 0 0 0 3px rgba(255,204,0,.25);
+  }
+  .s-card-icon { font-size: 30px; margin-bottom: 8px; }
+  .s-card-lbl  { font-size: 12px; color: var(--s-text); line-height: 1.3; }
+  .s-card.on .s-card-lbl { color: var(--s-text); font-weight: 600; }
+
+  /* ── SLIDERS (step 4) ── */
+  .s-sliders { display: flex; flex-direction: column; gap: 30px; }
+  .s-slider-row {
+    background: var(--s-surface);
+    border: 1px solid var(--s-border);
+    border-radius: 12px;
+    padding: 18px 20px 14px;
+  }
+  .s-slider-title {
+    display: flex; align-items: center; gap: 7px;
+    margin-bottom: 14px;
+    font-size: 13.5px; font-weight: 600; color: var(--s-text);
+  }
+  .s-tooltip-wrap { position: relative; display: inline-flex; }
+  .s-tooltip-icon {
+    width: 17px; height: 17px; border-radius: 50%;
+    background: var(--s-border); color: var(--s-muted);
+    font-size: 10px; font-weight: 700; font-style: normal;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: default; flex-shrink: 0; line-height: 1;
+    transition: background .2s;
+  }
+  .s-tooltip-wrap:hover .s-tooltip-icon { background: var(--s-blue); color: #fff; }
+  .s-tooltip-box {
+    display: none;
+    position: absolute; bottom: calc(100% + 8px); left: 50%;
+    transform: translateX(-50%);
+    background: var(--s-text); color: #fff;
+    font-size: 12px; font-weight: 400; line-height: 1.5;
+    padding: 9px 13px; border-radius: 8px;
+    width: 220px; z-index: 100;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18);
+    pointer-events: none;
+  }
+  .s-tooltip-box::after {
+    content: '';
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: var(--s-text);
+  }
+  .s-tooltip-wrap:hover .s-tooltip-box { display: block; }
+  .s-slider-ends {
+    display: flex; justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .s-slider-ends span { font-size: 12.5px; color: var(--s-muted); }
+  .s-slider-val {
+    text-align: center; font-size: 13px;
+    color: var(--s-blue); margin-top: 8px;
+    font-weight: 600; min-height: 18px;
+  }
+  input[type=range] {
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 5px; border-radius: 3px;
+    background: var(--s-border); outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 22px; height: 22px;
+    border-radius: 50%; background: var(--s-yellow);
+    border: 3px solid #fff;
+    box-shadow: 0 1px 8px rgba(255,204,0,.5);
+    cursor: pointer; transition: transform .2s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  input[type=range]::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--s-yellow); border: 3px solid #fff;
+    box-shadow: 0 1px 8px rgba(255,204,0,.5);
+  }
+
+  /* ── BUDGET SLIDER (step 5) ── */
+  .s-budget-amt {
+    text-align: center;
+    font-size: 52px; color: var(--s-text);
+    font-family: 'Sarabun', sans-serif; font-weight: 600;
+    margin: 24px 0 6px;
+  }
+  .s-budget-sub {
+    text-align: center; font-size: 12.5px;
+    color: var(--s-muted); margin-bottom: 24px;
+  }
+
+  /* ── NAVIGATION ── */
+  .s-nav {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-top: 32px;
+    padding-top: 20px;
+    border-top: 1px solid var(--s-border);
+  }
+  .s-btn {
+    padding: 11px 26px; border-radius: 8px;
+    font-size: 14px; cursor: pointer;
+    border: none; transition: all .25s;
+    font-family: 'Sarabun', sans-serif;
+    font-weight: 500;
+  }
+  .s-btn-back {
+    background: transparent;
+    border: 1.5px solid var(--s-border);
+    color: var(--s-muted);
+  }
+  .s-btn-back:hover { border-color: var(--s-blue); color: var(--s-blue); background: var(--s-blue-lt); }
+  .s-btn-next {
+    background: var(--s-yellow);
+    color: var(--s-text);
+    box-shadow: 0 3px 12px rgba(255,204,0,.4);
+  }
+  .s-btn-next:hover {
+    background: var(--s-yellow-dk);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(255,204,0,.5);
+  }
+  .s-btn-next:disabled {
+    opacity: .4; cursor: not-allowed; transform: none;
+    box-shadow: none;
+  }
+  .s-skip { font-size: 12px; color: var(--s-muted); cursor: pointer; }
+  .s-skip:hover { color: var(--s-blue); }
+
+  /* ── LOADING ── */
+  .s-loading { text-align: center; padding: 60px 0 40px; }
+  .s-spinner {
+    width: 46px; height: 46px;
+    border: 3px solid var(--s-border);
+    border-top-color: var(--s-blue);
+    border-radius: 50%;
+    animation: spin .85s linear infinite;
+    margin: 0 auto 22px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .s-loading-title {
+    font-size: 18px; color: var(--s-text); font-weight: 600;
+    font-family: 'Sarabun', sans-serif; margin-bottom: 16px;
+  }
+  .s-loading-sub {
+    font-size: 14px; color: var(--s-blue);
+    min-height: 22px;
+    transition: opacity .5s;
+  }
+  .s-loading-sub.fade { opacity: 0; }
+
+  /* ── RESULTS ── */
+  .s-intro {
+    font-size: 15px; color: var(--s-text);
+    font-family: 'Sarabun', sans-serif; line-height: 1.75;
+    padding: 16px 20px;
+    background: var(--s-yellow-lt);
+    border-left: 4px solid var(--s-yellow);
+    border-radius: 0 10px 10px 0;
+    margin-bottom: 28px;
+  }
+  .s-wine-cards { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Wine card */
+  .s-wine-card {
+    border: 1.5px solid var(--s-border);
+    border-radius: var(--s-radius);
+    overflow: hidden;
+    background: var(--s-bg);
+    transition: border-color .25s, box-shadow .25s;
+  }
+  .s-wine-card.tip-1 { border-color: var(--s-blue); }
+  .s-wine-card:hover { box-shadow: 0 4px 20px rgba(73,120,188,.15); }
+  .s-wine-card:not(.tip-1):hover { border-color: var(--s-yellow-dk); }
+  .s-wine-card.tip-1:hover {
+    border-color: var(--s-blue-dk);
+    box-shadow: 0 4px 20px rgba(73,120,188,.2);
+  }
+
+  /* Label strip — replaces badge + divider row */
+  .s-card-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 6px 20px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .s-card-label-1 { background: var(--s-blue); color: #fff; }
+  .s-card-label-2 { background: var(--s-blue-lt); color: var(--s-blue); }
+  .s-card-label-3 { background: var(--s-surface); color: var(--s-muted);
+    border-bottom: 1px solid var(--s-border); }
+
+  /* Card body */
+  .s-wc-body {
+    display: flex; gap: 18px; align-items: flex-start;
+    padding: 18px 20px 20px;
+  }
+  .s-wc-img {
+    width: 90px; flex-shrink: 0;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .s-wc-img img {
+    width: 100%; max-height: 160px;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+  }
+  .s-wc-content { flex: 1; min-width: 0; }
+  .s-wc-top {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 12px;
+    margin-bottom: 4px;
+  }
+  .s-wc-name {
+    font-size: 17px; color: var(--s-text); font-weight: 600;
+    font-family: 'Sarabun', sans-serif; line-height: 1.3;
+  }
+  .s-wc-price {
+    font-size: 18px; color: var(--s-blue);
+    font-family: 'Sarabun', sans-serif; font-weight: 600;
+    white-space: nowrap;
+  }
+  .s-wc-grape {
+    font-size: 11px; color: var(--s-muted);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    font-weight: 600; margin-bottom: 10px;
+  }
+  .s-vivino {
+    display: inline-flex; align-items: center; gap: 12px;
+    margin-bottom: 10px;
+    background: #eef3fb;
+    border-radius: 10px;
+    padding: 8px 14px;
+  }
+  .s-vivino-score {
+    font-size: 22px; font-weight: 700;
+    color: var(--s-blue); line-height: 1;
+    font-family: 'Sarabun', sans-serif;
+    letter-spacing: -.5px;
+  }
+  .s-vivino-right { display: flex; flex-direction: column; gap: 4px; }
+  .s-vivino-top-row { display: flex; align-items: center; gap: 8px; }
+  .s-vivino-stars-wrap {
+    position: relative; display: inline-block;
+    font-size: 17px; letter-spacing: 2px; line-height: 1;
+  }
+  .s-vivino-stars-empty { color: #ddd; }
+  .s-vivino-stars-filled {
+    position: absolute; left: 0; top: 0;
+    overflow: hidden; white-space: nowrap;
+    color: var(--s-blue);
+  }
+  .s-vivino-logo {
+    height: 13px; width: auto; opacity: .75; align-self: center;
+  }
+  .s-vivino-count { font-size: 12px; color: var(--s-muted); }
+  .s-wc-why {
+    font-size: 13.5px; color: var(--s-text);
+    line-height: 1.7; margin-bottom: 9px;
+  }
+  .s-wc-grape-exp {
+    font-size: 12.5px; color: var(--s-muted);
+    font-style: italic; font-family: 'Sarabun', sans-serif;
+    line-height: 1.6; margin-bottom: 14px;
+    padding: 10px 14px;
+    background: var(--s-yellow-lt);
+    border-radius: 8px;
+  }
+  .s-wc-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .s-wc-btn {
+    padding: 9px 20px; border-radius: 8px;
+    font-size: 13px; cursor: pointer;
+    transition: all .25s; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: 'Sarabun', sans-serif; font-weight: 500;
+  }
+  .s-wc-btn-primary {
+    background: var(--s-blue);
+    border: none; color: #fff;
+  }
+  .s-wc-btn-primary:hover { background: var(--s-blue-dk); }
+  .s-wc-btn-secondary {
+    background: var(--s-yellow);
+    border: none; color: var(--s-text);
+  }
+  .s-wc-btn-secondary:hover { background: var(--s-yellow-dk); }
+  .s-restart {
+    text-align: center; margin-top: 28px;
+  }
+  .s-restart-btn {
+    background: none; border: none;
+    color: var(--s-muted); font-size: 12.5px;
+    cursor: pointer; text-decoration: underline;
+    font-family: 'Sarabun', sans-serif;
+  }
+  .s-restart-btn:hover { color: var(--s-blue); }
+
+  /* ── ERROR ── */
+  .s-error {
+    text-align: center; padding: 40px 0;
+    color: var(--s-muted); font-size: 14px; line-height: 1.7;
+  }
+  .s-error strong { color: var(--s-text); font-size: 16px; display: block; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<p class="demo-hint">← Klik de knop rechtsonder om de sommelier te openen</p>
+
+<!-- ── Floating trigger ── -->
+<button id="s-trigger" onclick="S.open()">
+  <span>🍷</span><span>Persoonlijke Sommelier</span>
+</button>
+
+<!-- ── Overlay ── -->
+<div id="s-overlay" onclick="S.overlayClick(event)">
+  <div id="s-modal">
+    <button id="s-close" onclick="S.close()">✕</button>
+    <div style="margin-bottom:24px;padding-top:4px;">
+      <img src="https://proefgriekenland.nl/wp-content/themes/proef-griekenland/images/logo.svg"
+           alt="Proef Griekenland" style="height:52px;">
+    </div>
+    <div id="s-root"></div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   CONFIGURATIE — pas deze regels aan
+════════════════════════════════════════════════════════ */
+const CONFIG = {
+  proxyUrl: '/advies',   // Relatief — werkt automatisch lokaal én op Railway
+  currency: '€',
+};
+
+/* ════════════════════════════════════════════════════════
+   DATA
+════════════════════════════════════════════════════════ */
+const FAMILIAR_WINES = [
+  { group: 'Witte wijn',  icon: '🍋', items: ['Sauvignon Blanc','Pinot Grigio','Chardonnay','Riesling','Gewurztraminer','Viognier','Verdejo','Pinot Blanc'] },
+  { group: 'Rosé',        icon: '🌸', items: ['Droge rosé','Fruitige rosé'] },
+  { group: 'Rode wijn',   icon: '🍇', items: ['Pinot Noir','Merlot','Cabernet Sauvignon','Syrah / Shiraz','Malbec','Primitivo','Grenache','Tempranillo'] },
+  { group: 'Bubbels',     icon: '🥂', items: ['Prosecco','Champagne','Cava'] },
+];
+
+const WINE_TYPES = [
+  { icon: '🥂', label: 'Wit' },
+  { icon: '🍷', label: 'Rood' },
+  { icon: '🌸', label: 'Rosé' },
+  { icon: '🍾', label: 'Bubbels' },
+  { icon: '✨', label: 'Verras me!' },
+];
+
+const OCCASIONS = [
+  { icon:'🍽️', label:'Doordeweeks diner' },
+  { icon:'🕯️', label:'Speciaal diner' },
+  { icon:'🥂', label:'Feest & aperitief' },
+  { icon:'🎁', label:'Cadeau' },
+  { icon:'☀️', label:'Zomerse dag' },
+  { icon:'🧘', label:'Gewoon ontspannen' },
+];
+
+const FOODS = [
+  { icon:'🥩', label:'Rood vlees' },
+  { icon:'🍗', label:'Gevogelte' },
+  { icon:'🐟', label:'Vis & zeevruchten' },
+  { icon:'🥗', label:'Vegetarisch' },
+  { icon:'🧀', label:'Kaas & vleeswaren' },
+  { icon:'🍝', label:'Pasta & risotto' },
+  { icon:'🍰', label:'Dessert' },
+  { icon:'🍷', label:'Zonder eten' },
+];
+
+const SWEETNESS_LABELS = [
+  [1,3,'Droog'],
+  [4,5,'Halfdroog'],
+  [6,7,'Halfzoet'],
+  [8,10,'Zoet'],
+];
+const BODY_LABELS = [
+  [1,2,'Licht'],
+  [3,4,'Medium-licht'],
+  [5,6,'Medium'],
+  [7,8,'Medium-vol'],
+  [9,10,'Vol & krachtig'],
+];
+const TANNIN_LABELS = [
+  [1,3,'Zacht & fris'],
+  [4,5,'Licht tanninerijk'],
+  [6,7,'Stevig tanninerijk'],
+  [8,10,'Robuust & krachtig'],
+];
+
+function vivinoStars(score) {
+  // Geeft een overlay-gebaseerde sterrenbalk terug
+  // Breedte = score/5 * 100% — werkt voor elke decimale score
+  const pct = Math.min(100, Math.max(0, parseFloat(score) / 5 * 100)).toFixed(1);
+  return `<span class="s-vivino-stars-wrap">
+    <span class="s-vivino-stars-empty">★★★★★</span>
+    <span class="s-vivino-stars-filled" style="width:${pct}%">★★★★★</span>
+  </span>`;
+}
+
+function vivinoScore(score) {
+  // Toon score met komma als decimaalteken (Nederlandse notatie)
+  return parseFloat(score).toFixed(1).replace('.', ',');
+}
+
+function labelFor(val, map) {
+  for (const [lo, hi, lbl] of map) if (val >= lo && val <= hi) return lbl;
+  return '';
+}
+
+/* ════════════════════════════════════════════════════════
+   STATE
+════════════════════════════════════════════════════════ */
+const state = {
+  step: 0,          // 0-5 = wizard; 6 = loading; 7 = results; 8 = error
+  familiar: new Set(),
+  wijntype: null,
+  occasion: null,
+  food: null,
+  sweetness: 3,
+  body: 5,
+  tannins: 5,
+  budget: 25,
+  results: null,
+};
+
+const TOTAL_STEPS = 6;
+
+/* ════════════════════════════════════════════════════════
+   SOMMELIER OBJECT
+════════════════════════════════════════════════════════ */
+const S = {
+
+  open() {
+    document.getElementById('s-overlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+    this.render();
+  },
+
+  close() {
+    document.getElementById('s-overlay').classList.remove('open');
+    document.body.style.overflow = '';
+  },
+
+  overlayClick(e) {
+    if (e.target === document.getElementById('s-overlay')) this.close();
+  },
+
+  render() {
+    const root = document.getElementById('s-root');
+    root.innerHTML = '';
+    const el = document.createElement('div');
+    el.className = 's-step';
+
+    if (state.step <= 5) {
+      el.innerHTML = this._progress() + this._stepContent();
+    } else if (state.step === 6) {
+      el.innerHTML = this._loading();
+    } else if (state.step === 7) {
+      el.innerHTML = this._results();
+    } else {
+      el.innerHTML = this._error();
+    }
+
+    root.appendChild(el);
+    this._bindSliders();
+  },
+
+  _progress() {
+    if (state.step > 4) return '';
+    const dots = Array.from({length: TOTAL_STEPS}, (_, i) => {
+      const cls = i < state.step ? 'done' : i === state.step ? 'active' : '';
+      return `<div class="s-dot ${cls}"></div>`;
+    }).join('');
+    return `<div class="s-progress">${dots}</div>`;
+  },
+
+  _stepContent() {
+    const n = state.step;
+    const headers = [
+      ['Stap 1 van 6', 'Wat drink jij normaal graag?',    'Kies de wijnen die je al kent, ook meer dan één mag.'],
+      ['Stap 2 van 6', 'Welk type wijn wil je?',          'Kies één optie, of laat je verrassen'],
+      ['Stap 3 van 6', 'Voor welke gelegenheid?',         'Kies wat het best bij de situatie past'],
+      ['Stap 4 van 6', 'Wat eten jullie erbij?',          'Kies een gerecht, of kies voor wijn zonder eten'],
+      ['Stap 5 van 6', 'Jouw smaakprofiel',               'Schuif de balkjes naar jouw voorkeur'],
+      ['Stap 6 van 6', 'Wat is je budget?',               'Per fles wijn'],
+    ];
+    const [label, title, sub] = headers[n];
+    const hdr = `<p class="s-label">${label}</p><h2 class="s-title">${title}</h2><p class="s-sub">${sub}</p>`;
+    const body = [
+      this._stepFamiliar,
+      this._stepWijntype,
+      this._stepOccasion,
+      this._stepFood,
+      this._stepTaste,
+      this._stepBudget,
+    ][n].call(this);
+    const nav = this._nav();
+    return hdr + body + nav;
+  },
+
+  /* ── Step 1: familiar wines ── */
+  _stepFamiliar() {
+    const groups = FAMILIAR_WINES.map(({group, icon, items}) => {
+      const chips = items.map(w => {
+        const on = state.familiar.has(w) ? ' on' : '';
+        return `<button class="s-chip${on}" onclick="S.toggleFamiliar('${w}')">${w}</button>`;
+      }).join('');
+      return `<div class="s-chip-group">
+        <div class="s-chip-group-header">
+          <span class="s-chip-group-icon">${icon}</span>
+          <span class="s-chip-group-label">${group}</span>
+        </div>
+        <div class="s-chips">${chips}</div>
+      </div>`;
+    }).join('');
+    return `<div class="s-chip-groups">${groups}</div>`;
+  },
+
+  toggleFamiliar(w) {
+    if (state.familiar.has(w)) state.familiar.delete(w);
+    else state.familiar.add(w);
+    this.render();
+  },
+
+  /* ── Step 2: wijntype ── */
+  _stepWijntype() {
+    const cards = WINE_TYPES.map(({icon, label}) => {
+      const on = state.wijntype === label ? ' on' : '';
+      return `<div class="s-card${on}" onclick="S.pick('wijntype','${label}')">
+        <div class="s-card-icon">${icon}</div>
+        <div class="s-card-lbl">${label}</div>
+      </div>`;
+    }).join('');
+    return `<div class="s-cards">${cards}</div>`;
+  },
+
+  /* ── Step 3: occasion ── */
+  _stepOccasion() {
+    const cards = OCCASIONS.map(({icon, label}) => {
+      const on = state.occasion === label ? ' on' : '';
+      return `<div class="s-card${on}" onclick="S.pick('occasion','${label}')">
+        <div class="s-card-icon">${icon}</div>
+        <div class="s-card-lbl">${label}</div>
+      </div>`;
+    }).join('');
+    return `<div class="s-cards">${cards}</div>`;
+  },
+
+  /* ── Step 3: food ── */
+  _stepFood() {
+    const cards = FOODS.map(({icon, label}) => {
+      const on = state.food === label ? ' on' : '';
+      return `<div class="s-card${on}" onclick="S.pick('food','${label}')">
+        <div class="s-card-icon">${icon}</div>
+        <div class="s-card-lbl">${label}</div>
+      </div>`;
+    }).join('');
+    return `<div class="s-cards">${cards}</div>`;
+  },
+
+  pick(field, val) {
+    state[field] = val;
+    this.render();
+  },
+
+  /* ── Step 4: taste sliders ── */
+  _stepTaste() {
+    return `<div class="s-sliders">
+      ${this._slider('sweetness', 'Droog', 'Zoet', state.sweetness, SWEETNESS_LABELS,
+        'Droog', 'Zoet',
+        'Droog betekent geen restsuiker: denk aan een klassieke Sauvignon Blanc. Zoet betekent merkbare zoetheid, zoals een Riesling Spätlese.')}
+      ${this._slider('body', 'Licht', 'Vol & krachtig', state.body, BODY_LABELS,
+        'Licht', 'Vol',
+        'Body is het gewicht van de wijn in je mond. Licht is fris en rank (denk Pinot Grigio), vol is rijp en zwaar (denk volle Chardonnay).')}
+      ${this._slider('tannins', 'Zacht & fris', 'Robuust', state.tannins, TANNIN_LABELS,
+        'Zacht', 'Robuust',
+        'Tannine geeft de droge, samentrekkende sensatie bij rode wijn. Zacht is fluwelig (denk Merlot), robuust is stevig en krachtig (denk Cabernet Sauvignon).')}
+    </div>`;
+  },
+
+  _slider(id, left, right, val, labelMap, shortLeft, shortRight, tooltip) {
+    const lbl = labelFor(val, labelMap);
+    const titles = { sweetness: 'Droog of zoet', body: 'Licht of vol', tannins: 'Zacht of tanninerijk' };
+    return `<div class="s-slider-row">
+      <div class="s-slider-title">
+        ${titles[id]}
+        <span class="s-tooltip-wrap">
+          <i class="s-tooltip-icon">i</i>
+          <span class="s-tooltip-box">${tooltip}</span>
+        </span>
+      </div>
+      <div class="s-slider-ends"><span>${left}</span><span>${right}</span></div>
+      <input type="range" id="sl-${id}" min="1" max="10" value="${val}">
+      <div class="s-slider-val" id="sv-${id}">${lbl}</div>
+    </div>`;
+  },
+
+  _bindSliders() {
+    ['sweetness','body','tannins'].forEach(id => {
+      const el = document.getElementById(`sl-${id}`);
+      if (!el) return;
+      const labelMap = id === 'sweetness' ? SWEETNESS_LABELS : id === 'body' ? BODY_LABELS : TANNIN_LABELS;
+      el.addEventListener('input', () => {
+        state[id] = +el.value;
+        const sv = document.getElementById(`sv-${id}`);
+        if (sv) sv.textContent = labelFor(state[id], labelMap);
+        // Update track fill
+        const pct = (state[id] - 1) / 9 * 100;
+        el.style.background = `linear-gradient(to right, #ffcc00 ${pct}%, #dde3ef ${pct}%)`;
+      });
+      // Set initial fill
+      const pct = (val => (val - 1) / 9 * 100)(state[id]);
+      el.style.background = `linear-gradient(to right, #ffcc00 ${pct}%, #dde3ef ${pct}%)`;
+    });
+  },
+
+  /* ── Step 5: budget ── */
+  _stepBudget() {
+    const display = state.budget >= 58 ? `${CONFIG.currency}60+` : `${CONFIG.currency}${state.budget}`;
+    return `<div>
+      <div class="s-budget-amt" id="s-budget-amt">${display}</div>
+      <div class="s-budget-sub">per fles</div>
+      <input type="range" id="sl-budget" min="8" max="60" step="2" value="${state.budget}">
+    </div>`;
+  },
+
+  /* ── Nav bar ── */
+  _nav() {
+    const n = state.step;
+    const canNext = this._canProceed();
+    const backBtn = n === 0 ? '' :
+      `<button class="s-btn s-btn-back" onclick="S.back()">← Terug</button>`;
+
+    let rightSide;
+    if (n === 5) {
+      rightSide = `<button class="s-btn s-btn-next" onclick="S.submit()" ${canNext?'':'disabled'}>
+        Zoek mijn wijn 🍷
+      </button>`;
+    } else {
+      const skip = n === 0
+        ? `<span class="s-skip" onclick="S.next()">Sla over →</span>` : '';
+      rightSide = `${skip}<button class="s-btn s-btn-next" onclick="S.next()" ${canNext?'':'disabled'}>
+        Volgende →
+      </button>`;
+    }
+
+    return `<div class="s-nav">${backBtn || '<span></span>'}<div style="display:flex;align-items:center;gap:14px">${rightSide}</div></div>`;
+  },
+
+  _canProceed() {
+    const n = state.step;
+    if (n === 0) return true;           // vertrouwde wijnen: optioneel
+    if (n === 1) return !!state.wijntype;
+    if (n === 2) return !!state.occasion;
+    if (n === 3) return !!state.food;
+    if (n === 4) return true;
+    if (n === 5) return true;
+    return false;
+  },
+
+  next() {
+    if (state.step < TOTAL_STEPS - 1) { state.step++; this.render(); }
+  },
+  back() {
+    if (state.step > 0) { state.step--; this.render(); }
+  },
+
+  /* ── Loading screen ── */
+  _loading() {
+    return `<div class="s-loading">
+      <div class="s-spinner"></div>
+      <div class="s-loading-title">Jouw sommelier denkt na…</div>
+      <div class="s-loading-sub" id="s-loading-msg"></div>
+    </div>`;
+  },
+
+  _loadingMessages: [
+    'We zoeken door meer dan 100 Griekse wijnen…',
+    'Van Santorini tot de Peloponnesos…',
+    'Druivenrassen worden vergeleken met jouw smaak…',
+    'We raadplegen de wijngaarden van de Olympus…',
+    'Assyrtiko, Xinomavro, Malagousia… welke past bij jou?',
+    'Griekenland heeft 300+ inheemse druivenrassen…',
+    'Jouw smaakprofiel wordt zorgvuldig gematcht…',
+    'De perfecte fles is bijna gevonden…',
+  ],
+  _loadingTimer: null,
+  _loadingIndex: 0,
+
+  _startLoadingMessages() {
+    this._loadingIndex = 0;
+    const tick = () => {
+      const el = document.getElementById('s-loading-msg');
+      if (!el) return;
+      el.classList.add('fade');
+      setTimeout(() => {
+        if (!document.getElementById('s-loading-msg')) return;
+        el.textContent = this._loadingMessages[this._loadingIndex % this._loadingMessages.length];
+        this._loadingIndex++;
+        el.classList.remove('fade');
+      }, 500);
+    };
+    tick();
+    this._loadingTimer = setInterval(tick, 3000);
+  },
+
+  _stopLoadingMessages() {
+    clearInterval(this._loadingTimer);
+    this._loadingTimer = null;
+  },
+
+  /* ── Submit ── */
+  async submit() {
+    state.step = 6;
+    this.render();
+    this._startLoadingMessages();
+
+    const payload = {
+      familiar: [...state.familiar],
+      wijntype: state.wijntype,
+      occasion: state.occasion,
+      food:     state.food,
+      taste: {
+        sweetness: state.sweetness,
+        body:      state.body,
+        tannins:   state.tannins,
+      },
+      budget: state.budget,
+    };
+
+    try {
+      const res = await fetch(CONFIG.proxyUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      state.results = data;
+      state.step = 7;
+    } catch (err) {
+      console.error(err);
+      state.step = 8;
+    }
+    this._stopLoadingMessages();
+    this.render();
+  },
+
+  /* ── Results ── */
+  _results() {
+    const d = state.results;
+    if (!d) return this._error();
+    const intro = d.introduction
+      ? `<div class="s-intro">${d.introduction}</div>` : '';
+
+    const tipLabels  = ['🏆 Beste match', '✦ Aanrader', '✦ Ook een optie'];
+    const tipClasses = ['s-card-label-1', 's-card-label-2', 's-card-label-3'];
+
+    const cards = (d.recommendations || []).map((r, i) => `
+      <div class="s-wine-card${i === 0 ? ' tip-1' : ''}">
+        <div class="s-card-label ${tipClasses[i] || tipClasses[2]}">${tipLabels[i] || `Tip ${i+1}`}</div>
+        <div class="s-wc-body">
+          ${r.image ? `<div class="s-wc-img"><img src="${r.image}" alt="${r.name}" loading="lazy"></div>` : ''}
+          <div class="s-wc-content">
+            <div class="s-wc-top">
+              <div class="s-wc-name">${r.name}</div>
+              <div class="s-wc-price">${r.price ? CONFIG.currency + r.price : ''}</div>
+            </div>
+            <div class="s-wc-grape">${r.grape || ''} ${r.region ? '· ' + r.region : ''}</div>
+            ${r.vivino ? `<div class="s-vivino">
+              <span class="s-vivino-score">${vivinoScore(r.vivino.score)}</span>
+              <div class="s-vivino-right">
+                ${vivinoStars(r.vivino.score)}
+                ${r.vivino.count ? `<span class="s-vivino-count">${r.vivino.count} beoordelingen</span>` : ''}
+                <img class="s-vivino-logo" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMTI1IDIyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIj4KIDxwYXRoIGQ9Ik0xNjc3Ljg3LDQ1MC45MzdoNS41N1Y0MjkuMTZoLTUuNTd2MjEuNzc3Wm0zNi44NCwwLjAwNiw1LjU2LS4wMTJWNDI5LjE3MmgtNS41NnYyMS43NzFabS02My43My0yMS43OTIsNS41OSwwLDUuNDUsMTIuNTU1aDAuMzhsNS41NC0xMi41NTksNS43MS0uMDA4LTkuNTIsMjEuOC0zLjU0LjAxMlptMzYuNzcsMC4wMTgsNS41NywwLjAwNyw1LjQzLDEyLjUzNGgwLjQxbDUuNDktMTIuNTQxLDUuNzEsMC4wMDctOS40NywyMS43NjEtMy41Ni4wMTFabTM5LjcyLS4wMThoMy45MmMwLjUsMC43LjkzLDEuMzMxLDEuMzcsMS45aDAuMzhjNS41Ni00LjIyMywxNC4wOC0xLjU3NywxNC4wOCw1LjU4NWwtMC4wMSwxNC4zMDVoLTUuNDJsLTAuMDUtMTMuNDIzYy0wLjI3LTQuNDYzLTYuOS01LjEtOC4xOS0uNTYxYTE0LjEyNiwxNC4xMjYsMCwwLDAtLjQxLDQuNDA5bDAuMDEsOS41ODYtNS43MS0uMDExWm0zNy0uMTYyYzYuMzUsMCwxMS41Myw0Ljk0NCwxMS41MywxMC45ODNhMTEuMywxMS4zLDAsMCwxLTExLjUzLDExLjAzN3YtNC41N2E2LjMyMSw2LjMyMSwwLDAsMCwwLTEyLjY0MXYtNC44MDlabTAsMjIuMDJhMTEuMywxMS4zLDAsMCwxLTExLjUzLTExLjAzN2MwLTYuMDM5LDUuMTgtMTAuOTgzLDExLjUzLTEwLjk4M1Y0MzMuOGE2LjMyMSw2LjMyMSwwLDAsMCwwLDEyLjY0MXY0LjU3WiIgZmlsbD0iI2JhMTYyOCIgZmlsbC1ydWxlPSJldmVub2RkIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTY1MSAtNDI5KSI+CiA8L3BhdGg+Cjwvc3ZnPg==" alt="Vivino">
+              </div>
+            </div>` : ''}
+            <div class="s-wc-why">${r.why}</div>
+            ${r.grape_explanation ? `<div class="s-wc-grape-exp">💡 ${r.grape_explanation}</div>` : ''}
+            <div class="s-wc-actions">
+              ${r.url ? `<a href="${r.url}" target="_blank" class="s-wc-btn s-wc-btn-primary">Bekijk wijn →</a>` : ''}
+              ${r.add_to_cart_url ? `<a href="${r.add_to_cart_url}" class="s-wc-btn s-wc-btn-secondary">🛒 In winkelwagen</a>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>`).join('');
+
+    return `
+      <h2 class="s-title" style="margin-bottom:20px">Aanbevolen voor jou</h2>
+      ${intro}
+      <div class="s-wine-cards">${cards}</div>
+      <div class="s-restart">
+        <button class="s-restart-btn" onclick="S.restart()">Opnieuw beginnen</button>
+      </div>`;
+  },
+
+  /* ── Error ── */
+  _error() {
+    return `<div class="s-error">
+      <strong>Verbindingsfout</strong>
+      De sommelier is even niet beschikbaar. Controleer of de proxy draait.<br><br>
+      <button class="s-btn s-btn-next" onclick="S.restart()" style="margin:0 auto;display:block">Opnieuw proberen</button>
+    </div>`;
+  },
+
+  restart() {
+    Object.assign(state, {
+      step:0, familiar: new Set(),
+      wijntype:null, occasion:null, food:null,
+      sweetness:3, body:5, tannins:5,
+      budget:25, results:null,
+    });
+    this.render();
+  },
+};
+
+/* ── Budget slider binding (outside normal _bindSliders because step 5) ── */
+document.getElementById('s-root').addEventListener('input', e => {
+  if (e.target.id === 'sl-budget') {
+    state.budget = +e.target.value;
+    const display = state.budget >= 58 ? `${CONFIG.currency}60+` : `${CONFIG.currency}${state.budget}`;
+    const el = document.getElementById('s-budget-amt');
+    if (el) el.textContent = display;
+    const pct = (state.budget - 8) / 52 * 100;
+    e.target.style.background = `linear-gradient(to right, #ffcc00 ${pct}%, #dde3ef ${pct}%)`;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+<!--
+  ════════════════════════════════════════════════
+  GRIEKSE WIJN SOMMELIER — WordPress embed snippet
+  ════════════════════════════════════════════════
+  Plak dit blok in je WordPress thema, bijv. via:
+    - Appearance → Theme File Editor → footer.php
+    - of een HTML-blok onderaan je pagina
+  ════════════════════════════════════════════════
+-->
+
+<!-- 1. Stijlen -->
+<link rel="stylesheet" href="https://jouw-server.nl/sommelier/widget.css">
+
+<!-- 2. Widget container (onzichtbaar, widget maakt zichzelf) -->
+<div id="griekse-wijn-sommelier"></div>
+
+<!-- 3. Widget script -->
+<script>
+  window.SOMMELIER_CONFIG = {
+    proxyUrl: 'https://jouw-server.nl/sommelier/advies',
+    currency: '€',
+  };
+</script>
+<script src="https://jouw-server.nl/sommelier/widget.js" defer></script>
+
+<!--
+  ALTERNATIEF: als je geen aparte server wilt,
+  kun je de proxy als WordPress REST-route registreren.
+  Zie de README voor meer informatie.
+-->
