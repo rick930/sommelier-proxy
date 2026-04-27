@@ -342,6 +342,9 @@ ${getSeizoensHint()}
       else console.warn(`⚠️  Geen match voor product_id=${r.product_id} naam="${r.name}"`);
     }
     wine = wine || {};
+    // WooCommerce-attributen zijn leidend — handmatig gecheckt door de beheerder
+    const wcGrape  = wine.attributes?.druivenras || wine.attributes?.['druivenras'] || '';
+    const wcRegion = wine.attributes?.regio       || wine.attributes?.['regio']      || '';
     return {
       ...r,
       name:              wine.name  || r.name || '',
@@ -349,6 +352,8 @@ ${getSeizoensHint()}
       url:               wine.url   || '',
       add_to_cart_url:   wine.add_to_cart_url || '',
       image:             wine.image || '',
+      grape:             wcGrape  || r.grape  || '',   // WooCommerce > Claude
+      region:            wcRegion || r.region || '',   // WooCommerce > Claude
       why:               cleanText(r.why),
       grape_explanation: cleanText(r.grape_explanation),
     };
