@@ -185,7 +185,7 @@ function trackConversation(preferences, recommendations) {
       stats.wines[r.product_id].name = r.name;
     }
   });
-  if (stats.total % 5 === 0) saveStats();
+  saveStats();
 }
 
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
