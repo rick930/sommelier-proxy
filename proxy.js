@@ -244,6 +244,17 @@ async function fetchWines() {
         const { vintageId: vivinoVintageId, wineId: vivinoWineId } =
           parseVivinoIds(sommelierMeta || vivinoWidget);
 
+        // Proef Griekenland custom meta-velden (properties_pg_*)
+        const meta = key => p.meta_data?.find(m => m.key === key)?.value || '';
+        const pgDruivensoort = meta('properties_pg_druivensoort');
+        const pgRegio        = meta('properties_pg_regio');
+        const pgSmaak        = meta('properties_pg_smaak');
+
+        // WooCommerce standaard attributen als fallback
+        const wcAttrs = Object.fromEntries(
+          (p.attributes || []).map(a => [a.name.toLowerCase(), a.options.join(', ')])
+        );
+
         return {
           id:     p.id,
           name:   p.name,
@@ -251,9 +262,11 @@ async function fetchWines() {
           url:    fixUrl(p.permalink),
           add_to_cart_url: `${fixUrl(p.permalink)}?add-to-cart=${p.id}`,
           image:  p.images?.[0]?.src || null,
-          attributes: Object.fromEntries(
-            (p.attributes || []).map(a => [a.name.toLowerCase(), a.options.join(', ')])
-          ),
+          // Handmatig gecheckte velden — altijd leidend boven Claude
+          pg_druivensoort: pgDruivensoort,
+          pg_regio:        pgRegio,
+          pg_smaak:        pgSmaak,
+          attributes:      wcAttrs,
           tags: (p.tags || []).map(t => t.name),
           short_description: p.short_description?.replace(/<[^>]+>/g, '') || '',
           vivinoVintageId,
@@ -342,9 +355,9 @@ ${getSeizoensHint()}
       else console.warn(`⚠️  Geen match voor product_id=${r.product_id} naam="${r.name}"`);
     }
     wine = wine || {};
-    // WooCommerce-attributen zijn leidend — handmatig gecheckt door de beheerder
-    const wcGrape  = wine.attributes?.druivenras || wine.attributes?.['druivenras'] || '';
-    const wcRegion = wine.attributes?.regio       || wine.attributes?.['regio']      || '';
+    // Prioriteit: properties_pg_* meta > WooCommerce attributen > Claude
+    const wcGrape  = wine.pg_druivensoort || wine.attributes?.druivenras || '';
+    const wcRegion = wine.pg_regio        || wine.attributes?.regio       || '';
     return {
       ...r,
       name:              wine.name  || r.name || '',
@@ -352,8 +365,8 @@ ${getSeizoensHint()}
       url:               wine.url   || '',
       add_to_cart_url:   wine.add_to_cart_url || '',
       image:             wine.image || '',
-      grape:             wcGrape  || r.grape  || '',   // WooCommerce > Claude
-      region:            wcRegion || r.region || '',   // WooCommerce > Claude
+      grape:             wcGrape  || r.grape  || '',   // productpagina > Claude
+      region:            wcRegion || r.region || '',   // productpagina > Claude
       why:               cleanText(r.why),
       grape_explanation: cleanText(r.grape_explanation),
     };
