@@ -48,13 +48,19 @@ Geef je antwoord ALTIJD als valide JSON (geen markdown, geen extra tekst), preci
       "grape": "Druivenras",
       "region": "Regio, Griekenland",
       "why": "1-2 zinnen waarom deze wijn perfect past bij hun smaak en gelegenheid",
-      "grape_explanation": "1 zin: vergelijk het Griekse ras met wat ze kennen"
+      "grape_explanation": "1 zin: vergelijk het Griekse ras met wat ze kennen",
+      "serving_temp": "serveertemperatuur bijv. '10-12°C', '14-16°C' of '16-18°C'",
+      "decant": false,
+      "keep": "bijv. 'Nu drinken', '2-4 jaar' of '5-10 jaar'"
     }
   ]
 }
 
 Geef 2 tot 3 aanbevelingen, gesorteerd op beste match.
-Verzin NOOIT URLs of prijzen — die voegen wij zelf toe op basis van product_id.`;
+Verzin NOOIT URLs of prijzen — die voegen wij zelf toe op basis van product_id.
+serving_temp: gebruik standaard serveertemperaturen (wit/rosé/bubbels 8-14°C, lichte rood 14-16°C, volle rood 16-18°C).
+decant: true als de wijn baat heeft bij luchten of karaffen, anders false.
+keep: globale houdbaarheid vanaf nu.`;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -115,6 +121,59 @@ function resetWidgetHtml() {
   } catch (err) {
     console.warn('⚠️  Kon widget.html niet herstellen:', err.message);
   }
+}
+
+/* ════════════════════════════════════════════════════════
+   Statistieken — gesprekken bijhouden
+════════════════════════════════════════════════════════ */
+let stats = {
+  total: 0,
+  wijntypes: {},
+  occasions: {},
+  foods: {},
+  budgets: { '<€15': 0, '€15-25': 0, '€25-35': 0, '€35-50': 0, '€50+': 0 },
+  wines: {},
+};
+
+function loadStats() {
+  try {
+    const file = join(DATA_DIR, 'stats.json');
+    if (existsSync(file)) {
+      const data = JSON.parse(readFileSync(file, 'utf8'));
+      stats = { ...stats, ...data };
+      console.log(`📊 Statistieken geladen: ${stats.total} gesprekken`);
+    }
+  } catch (err) {
+    console.warn('⚠️  Kon statistieken niet laden:', err.message);
+  }
+}
+
+function saveStats() {
+  try {
+    ensureDataDir();
+    writeFileSync(join(DATA_DIR, 'stats.json'), JSON.stringify(stats, null, 2), 'utf8');
+  } catch (err) {
+    console.warn('⚠️  Kon statistieken niet opslaan:', err.message);
+  }
+}
+
+function trackConversation(preferences, recommendations) {
+  stats.total++;
+  const inc = (obj, key) => { obj[key] = (obj[key] || 0) + 1; };
+  inc(stats.wijntypes, preferences.wijntype || 'Onbekend');
+  inc(stats.occasions, preferences.occasion || 'Onbekend');
+  inc(stats.foods,     preferences.food     || 'Onbekend');
+  const b = preferences.budget || 0;
+  const bk = b < 15 ? '<€15' : b < 25 ? '€15-25' : b < 35 ? '€25-35' : b < 50 ? '€35-50' : '€50+';
+  inc(stats.budgets, bk);
+  (recommendations || []).forEach(r => {
+    if (r.product_id && r.name) {
+      if (!stats.wines[r.product_id]) stats.wines[r.product_id] = { name: r.name, count: 0 };
+      stats.wines[r.product_id].count++;
+      stats.wines[r.product_id].name = r.name;
+    }
+  });
+  if (stats.total % 5 === 0) saveStats();
 }
 
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
@@ -225,6 +284,7 @@ Gerecht: ${preferences.food}
 Smaakprofiel:
 ${tasteDesc}
 Budget: tot €${preferences.budget >= 58 ? '60+' : preferences.budget} per fles
+${getSeizoensHint()}
 `.trim();
 
   const systemPrompt = customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
@@ -491,6 +551,7 @@ app.post('/advies', async (req, res) => {
     console.log('🤖 Claude aanroepen...');
     const result = await getRecommendations(preferences, wines);
     console.log(`✅ ${result.recommendations?.length || 0} aanbevelingen teruggestuurd`);
+    trackConversation(preferences, result.recommendations);
 
     res.json(result);
   } catch (err) {
@@ -842,7 +903,8 @@ textarea:focus{border-color:#4273bd}
   <div class="tabs">
     <button class="tab ${activeTab === 'ai'   ? 'on' : ''}" onclick="showTab('ai')">🤖 AI-instructies</button>
     <button class="tab ${activeTab === 'widget'? 'on' : ''}" onclick="showTab('widget')">🎨 Widget${hasCustomWidget ? ' <span class="tag tag-custom">✎</span>' : ''}</button>
-    <button class="tab ${activeTab === 'chat' ? 'on' : ''}" onclick="showTab('chat')">💬 Assistent</button>
+    <button class="tab ${activeTab === 'chat'  ? 'on' : ''}" onclick="showTab('chat')">💬 Assistent</button>
+    <button class="tab ${activeTab === 'stats' ? 'on' : ''}" onclick="showTab('stats')">📊 Statistieken</button>
   </div>
 
   <!-- ── Tab: AI ── -->
@@ -898,11 +960,20 @@ textarea:focus{border-color:#4273bd}
     </div>
   </div>
 
+  <!-- ── Tab: Statistieken ── -->
+  <div id="pane-stats" ${activeTab !== 'stats' ? 'style="display:none"' : ''}>
+    <div class="panel">
+      <h2>Statistieken</h2>
+      <p>Overzicht van gesprekken met de sommelier. Wordt automatisch bijgehouden.</p>
+      <div id="stats-content" class="loader">⏳ Laden…</div>
+    </div>
+  </div>
+
 </div>
 <script>
 const PW='${pwEnc}';
 let wLoaded=false;
-const TABS=['ai','widget','chat'];
+const TABS=['ai','widget','chat','stats'];
 
 function showTab(t){
   TABS.forEach(id=>{
@@ -911,6 +982,7 @@ function showTab(t){
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',TABS[i]===t));
   if(t==='widget'&&!wLoaded)loadWidget();
   if(t==='chat')document.getElementById('chat-in').focus();
+  if(t==='stats')loadStats();
 }
 
 function loadWidget(){
@@ -926,6 +998,53 @@ function loadWidget(){
     .catch(e=>{document.getElementById('wload').textContent='❌ Laden mislukt: '+e.message;});
 }
 ${activeTab === 'widget' ? 'loadWidget();' : ''}
+${activeTab === 'stats'  ? 'loadStats();'  : ''}
+
+let statsLoaded=false;
+function loadStats(){
+  if(statsLoaded)return;
+  statsLoaded=true;
+  fetch('/beheer/stats-data?pw='+PW)
+    .then(r=>r.json())
+    .then(d=>{
+      const el=document.getElementById('stats-content');
+      if(!d||d.error){el.textContent='❌ '+(d?.error||'Laden mislukt');return;}
+      el.innerHTML=renderStats(d);
+    })
+    .catch(e=>{document.getElementById('stats-content').textContent='❌ '+e.message;});
+}
+function bar(val,max,color='#4273bd'){
+  const pct=max>0?Math.round(val/max*100):0;
+  return \`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div style="flex:1;background:#e2e8f0;border-radius:4px;height:14px;overflow:hidden">
+      <div style="width:\${pct}%;background:\${color};height:100%;border-radius:4px;transition:width .3s"></div>
+    </div>
+    <span style="font-size:12px;color:#64748b;min-width:28px;text-align:right">\${val}</span>
+  </div>\`;
+}
+function topRows(obj,color){
+  const sorted=Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const max=sorted[0]?.[1]||1;
+  return sorted.map(([k,v])=>\`<div style="margin-bottom:10px"><div style="font-size:13px;margin-bottom:3px">\${k}</div>\${bar(v,max,color)}</div>\`).join('');
+}
+function renderStats(d){
+  const wineRows=Object.values(d.wines||{}).sort((a,b)=>b.count-a.count).slice(0,8);
+  const maxW=wineRows[0]?.count||1;
+  return \`
+  <div style="font-size:32px;font-weight:700;color:#4273bd;margin-bottom:4px">\${d.total||0}</div>
+  <div style="font-size:13px;color:#94a3b8;margin-bottom:24px">gesprekken totaal</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;margin-bottom:24px">
+    <div><div style="font-weight:700;font-size:13px;margin-bottom:12px;color:#334155">🍷 Wijntypen</div>\${topRows(d.wijntypes,'#4273bd')}</div>
+    <div><div style="font-weight:700;font-size:13px;margin-bottom:12px;color:#334155">🕯️ Gelegenheden</div>\${topRows(d.occasions,'#7c3aed')}</div>
+    <div><div style="font-weight:700;font-size:13px;margin-bottom:12px;color:#334155">🍽️ Gerechten</div>\${topRows(d.foods,'#b45309')}</div>
+    <div><div style="font-weight:700;font-size:13px;margin-bottom:12px;color:#334155">💶 Budget</div>\${topRows(d.budgets,'#059669')}</div>
+  </div>
+  \${wineRows.length?\`<div style="font-weight:700;font-size:13px;margin-bottom:12px;color:#334155">🏆 Meest aanbevolen</div>
+  \${wineRows.map(w=>\`<div style="margin-bottom:10px"><div style="font-size:13px;margin-bottom:3px">\${w.name}</div>\${bar(w.count,maxW,'#dc2626')}</div>\`).join('')}\`:''}
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid #e2e8f0">
+    <button class="btn btn-secondary" onclick="statsLoaded=false;loadStats()" style="font-size:13px;padding:8px 16px">↺ Vernieuwen</button>
+  </div>\`;
+}
 
 /* ── Chat ── */
 let chatHistory=[];
@@ -1044,6 +1163,13 @@ app.get('/beheer/widget-source', (req, res) => {
   } catch (err) {
     res.status(500).send('Fout: ' + err.message);
   }
+});
+
+// GET /beheer/stats-data — statistieken als JSON
+app.get('/beheer/stats-data', (req, res) => {
+  const pw = req.query.pw || req.headers['x-beheer-pw'];
+  if (pw !== BEHEER_PASSWORD) return res.status(403).json({ error: 'Geen toegang' });
+  res.json(stats);
 });
 
 // POST /beheer/chat — assistent in beheerpaneel
@@ -1203,6 +1329,7 @@ function scheduleNightlyRefresh() {
 }
 
 loadSettings(); // laad opgeslagen instellingen uit Railway Volume
+loadStats();    // laad statistieken
 
 app.listen(port, () => {
   console.log(`Sommelier proxy draait op http://localhost:${port}`);
@@ -1237,6 +1364,14 @@ function parseVivinoIds(input) {
     wineId:    wineUrlMatch    ? wineUrlMatch[1]    : null,
   };
 }
+function getSeizoensHint() {
+  const m = new Date().getMonth(); // 0 = jan
+  if (m >= 2 && m <= 4) return 'Seizoen: lente — frisse witte wijnen en rosé zijn populair.';
+  if (m >= 5 && m <= 7) return 'Seizoen: zomer — lichte gekoelde wijnen, rosé en bubbels passen perfect bij warm weer.';
+  if (m >= 8 && m <= 10) return 'Seizoen: herfst — rijkere rode wijnen en complexe whites passen bij het seizoen.';
+  return 'Seizoen: winter — volle rode wijnen en stevige wijnen zijn nu extra passend.';
+}
+
 function sweetnessWord(v) {
   if (v <= 3) return 'droog';
   if (v <= 5) return 'halfdroog';

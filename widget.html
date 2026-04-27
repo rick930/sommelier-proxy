@@ -638,6 +638,35 @@
     color: var(--s-muted); font-size: 14px; line-height: 1.7;
   }
   .s-error strong { color: var(--s-text); font-size: 16px; display: block; margin-bottom: 8px; }
+
+  /* ── Serving tips ── */
+  .s-serving {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 12px; color: var(--s-muted);
+    margin-bottom: 14px; padding: 8px 12px;
+    background: var(--s-surface);
+    border-radius: 8px;
+  }
+  .s-serving span { white-space: nowrap; }
+
+  /* ── WhatsApp share ── */
+  .s-share-row {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--s-border);
+  }
+  .s-share-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px;
+    background: #25d366; color: #fff;
+    border: none; border-radius: 50px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    font-family: 'Sarabun', sans-serif;
+    transition: background .2s, transform .2s;
+  }
+  .s-share-btn:hover { background: #1ebe5c; transform: translateY(-1px); }
 </style>
 </head>
 <body>
@@ -1137,6 +1166,11 @@ const S = {
             </div>` : ''}
             <div class="s-wc-why">${r.why}</div>
             ${r.grape_explanation ? `<div class="s-wc-grape-exp">💡 ${r.grape_explanation}</div>` : ''}
+            ${(r.serving_temp || r.keep) ? `<div class="s-serving">
+              ${r.serving_temp ? `<span>🌡️ ${r.serving_temp}</span>` : ''}
+              ${r.decant ? `<span>🫙 Karaffen aanbevolen</span>` : ''}
+              ${r.keep ? `<span>🗓️ ${r.keep}</span>` : ''}
+            </div>` : ''}
             <div class="s-wc-actions">
               ${r.url && r.url.startsWith('http') ? `<a href="${r.url}" target="_parent" class="s-wc-btn s-wc-btn-primary">Bekijk wijn →</a>` : ''}
               ${r.add_to_cart_url && r.add_to_cart_url.startsWith('http') ? `<a href="${r.add_to_cart_url}" target="_parent" class="s-wc-btn s-wc-btn-secondary">🛒 In winkelwagen</a>` : ''}
@@ -1149,9 +1183,29 @@ const S = {
       <h2 class="s-title" style="margin-bottom:20px">Aanbevolen voor jou</h2>
       ${intro}
       <div class="s-wine-cards">${cards}</div>
+      ${this._whatsappShare(d.recommendations || [])}
       <div class="s-restart">
         <button class="s-restart-btn" onclick="S.restart()">Opnieuw beginnen</button>
       </div>`;
+  },
+
+  /* ── WhatsApp share ── */
+  _whatsappShare(recs) {
+    if (!recs.length) return '';
+    const lines = recs.map((r, i) => {
+      const labels = ['🏆 Beste match', '✦ Aanrader', '✦ Ook een optie'];
+      const lbl = labels[i] || `Tip ${i+1}`;
+      const prijs = r.price ? ` — €${r.price}` : '';
+      const link = r.url && r.url.startsWith('http') ? `\n   ${r.url}` : '';
+      return `${lbl}: ${r.name}${prijs}${link}`;
+    }).join('\n\n');
+    const msg = encodeURIComponent(`🍷 Mijn wijn-aanbevelingen van Proef Griekenland:\n\n${lines}\n\nAdvies via de Griekse Sommelier → https://proefgriekenland.nl`);
+    return `<div class="s-share-row">
+      <a href="https://wa.me/?text=${msg}" target="_blank" class="s-share-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.553 4.116 1.523 5.845L.057 23.928l6.24-1.467C7.88 23.447 9.892 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.9c-1.938 0-3.742-.527-5.287-1.442l-.378-.224-3.926.923.963-3.82-.246-.395C2.062 15.393 1.5 13.762 1.5 12 1.5 6.201 6.201 1.5 12 1.5S22.5 6.201 22.5 12 17.799 22.5 12 22.5z"/></svg>
+        Deel via WhatsApp
+      </a>
+    </div>`;
   },
 
   /* ── Error ── */
