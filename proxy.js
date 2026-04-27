@@ -9,7 +9,7 @@
  */
 
 import dotenv from 'dotenv';
-dotenv.config({ override: true });
+dotenv.config(); // Railway env vars hebben prioriteit over .env
 import Anthropic from '@anthropic-ai/sdk';
 import express from 'express';
 import cors from 'cors';
@@ -18,6 +18,42 @@ import { dirname } from 'path';
 
 const app  = express();
 const port = process.env.PORT || 3000;
+
+/* ════════════════════════════════════════════════════════
+   System prompt — aanpasbaar via /beheer
+════════════════════════════════════════════════════════ */
+let customSystemPrompt = null; // null = gebruik DEFAULT_SYSTEM_PROMPT
+
+const DEFAULT_SYSTEM_PROMPT = `Je bent een warme, enthousiaste sommelier gespecialiseerd in Griekse wijnen.
+Je helpt klanten Griekse wijnen ontdekken die passen bij hun smaak.
+Je spreekt vloeiend Nederlands en bent beknopt maar persoonlijk.
+
+Gebruik altijd correcte wijnvaktaal:
+- "body" (NOOIT "lichaamsomvang" of "gewicht")
+- "tannines" (NOOIT "looistoffen")
+- "afdronk", "zuurgraad", "aroma's", "bouquet"
+- Beschrijf smaken concreet: "kersen, kruidnagel, leer, tabak" — geen vage omschrijvingen
+
+Griekse druivenrassen zijn voor veel mensen onbekend. Leg altijd kort uit:
+- Hoe het Griekse ras zich verhoudt tot bekende internationale druiven
+- Waarom de wijn past bij dit specifieke smaakprofiel en deze gelegenheid
+
+Geef je antwoord ALTIJD als valide JSON (geen markdown, geen extra tekst), precies in dit formaat:
+{
+  "introduction": "Persoonlijke, warme intro van 2-3 zinnen gebaseerd op hun profiel",
+  "recommendations": [
+    {
+      "product_id": 123,
+      "grape": "Druivenras",
+      "region": "Regio, Griekenland",
+      "why": "1-2 zinnen waarom deze wijn perfect past bij hun smaak en gelegenheid",
+      "grape_explanation": "1 zin: vergelijk het Griekse ras met wat ze kennen"
+    }
+  ]
+}
+
+Geef 2 tot 3 aanbevelingen, gesorteerd op beste match.
+Verzin NOOIT URLs of prijzen — die voegen wij zelf toe op basis van product_id.`;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -98,10 +134,11 @@ async function fetchWines() {
 async function getRecommendations(preferences, wines) {
   const wineList = wines.map(w => {
     const attrs = Object.entries(w.attributes)
-      .map(([k, v]) => `  ${k}: ${v}`)
-      .join('\n');
-    return `ID ${w.id} | ${w.name} | €${w.price}\n${attrs}\n  tags: ${w.tags.join(', ')}\n  ${w.short_description}`;
-  }).join('\n\n');
+      .filter(([k]) => ['druivenras','regio','kleur','smaakprofiel'].includes(k.toLowerCase()))
+      .map(([k, v]) => `${k}: ${v}`)
+      .join(' | ');
+    return `${w.id}|${w.name}|€${w.price}|${attrs}|${w.tags.slice(0,4).join(',')}`;
+  }).join('\n');
 
   const tasteDesc = [
     `Droog/zoet schaal (1=droog, 10=zoet): ${preferences.taste.sweetness} → ${sweetnessWord(preferences.taste.sweetness)}`,
@@ -123,34 +160,11 @@ ${tasteDesc}
 Budget: tot €${preferences.budget >= 58 ? '60+' : preferences.budget} per fles
 `.trim();
 
-  const systemPrompt = `Je bent een warme, enthousiaste sommelier gespecialiseerd in Griekse wijnen.
-Je helpt klanten Griekse wijnen ontdekken die passen bij hun smaak.
-Je spreekt vloeiend Nederlands en bent beknopt maar persoonlijk.
-
-Griekse druivenrassen zijn voor veel mensen onbekend. Leg altijd kort uit:
-- Hoe het Griekse ras zich verhoudt tot bekende internationale druiven
-- Waarom de wijn past bij dit specifieke smaakprofiel en deze gelegenheid
-
-Geef je antwoord ALTIJD als valide JSON (geen markdown, geen extra tekst), precies in dit formaat:
-{
-  "introduction": "Persoonlijke, warme intro van 2-3 zinnen gebaseerd op hun profiel",
-  "recommendations": [
-    {
-      "product_id": 123,
-      "grape": "Druivenras",
-      "region": "Regio, Griekenland",
-      "why": "1-2 zinnen waarom deze wijn perfect past bij hun smaak en gelegenheid",
-      "grape_explanation": "1 zin: vergelijk het Griekse ras met wat ze kennen"
-    }
-  ]
-}
-
-Geef 2 tot 3 aanbevelingen, gesorteerd op beste match.
-Verzin NOOIT URLs of prijzen — die voegen wij zelf toe op basis van product_id.`;
+  const systemPrompt = customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
 
   const message = await anthropic.messages.create({
-    model:      'claude-sonnet-4-6',
-    max_tokens: 1024,
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 1500,
     system:     systemPrompt,
     messages: [
       {
@@ -180,7 +194,15 @@ Verzin NOOIT URLs of prijzen — die voegen wij zelf toe op basis van product_id
   // Verrijk aanbevelingen met correcte data uit WooCommerce (nooit van Claude)
   const wineIndex = Object.fromEntries(wines.map(w => [w.id, w]));
   result.recommendations = result.recommendations.map(r => {
-    const wine = wineIndex[r.product_id] || {};
+    // Primair: zoek op ID; fallback: zoek op naam (voor het geval het model een verkeerd ID geeft)
+    let wine = wineIndex[r.product_id];
+    if (!wine) {
+      const nameLower = (r.name || '').toLowerCase();
+      wine = wines.find(w => w.name.toLowerCase().includes(nameLower) || nameLower.includes(w.name.toLowerCase()));
+      if (wine) console.log(`ℹ️  ID ${r.product_id} niet gevonden — fallback naar naam "${wine.name}"`);
+      else console.warn(`⚠️  Geen match voor product_id=${r.product_id} naam="${r.name}"`);
+    }
+    wine = wine || {};
     return {
       ...r,
       name:              wine.name  || r.name || '',
@@ -635,6 +657,91 @@ async function refreshVivinoScores() {
     refreshRunning = false;
   }
 }
+
+/* ════════════════════════════════════════════════════════
+   Beheerpaneel — /beheer
+════════════════════════════════════════════════════════ */
+const BEHEER_PASSWORD = process.env.BEHEER_PASSWORD || 'sommelier';
+
+function beheerHtml(prompt, message = '') {
+  const huidig = prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return `<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sommelier Beheer</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 860px; margin: 40px auto; padding: 0 20px; background: #f5f7fb; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.sub { color: #666; font-size: 14px; margin-bottom: 24px; }
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  textarea { width: 100%; height: 420px; font-family: monospace; font-size: 13px; padding: 12px;
+             border: 1px solid #dde3ef; border-radius: 8px; box-sizing: border-box; resize: vertical; }
+  .btn { background: #4273bd; color: #fff; border: none; padding: 12px 28px; border-radius: 8px;
+         font-size: 15px; cursor: pointer; margin-top: 12px; }
+  .btn:hover { background: #2f5ca0; }
+  .btn-reset { background: #888; margin-left: 10px; }
+  .msg { padding: 10px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+  .msg.ok { background: #d4edda; color: #155724; }
+  .msg.err { background: #f8d7da; color: #721c24; }
+  .pw-form { background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); max-width: 360px; margin: 80px auto; }
+  .pw-form h2 { margin-top: 0; }
+  .pw-form input { width: 100%; padding: 10px; border: 1px solid #dde3ef; border-radius: 6px; font-size: 15px; box-sizing: border-box; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<h1>🍷 Sommelier Beheerpaneel</h1>
+<p class="sub">Pas de system prompt aan. Wijzigingen zijn direct actief (tot de volgende herstart).</p>
+${message}
+<form method="POST" action="/beheer">
+  <input type="hidden" name="action" value="save">
+  <label>System prompt</label>
+  <textarea name="prompt">${huidig}</textarea>
+  <br>
+  <button class="btn" type="submit">💾 Opslaan</button>
+  <button class="btn btn-reset" type="submit" name="action" value="reset">↺ Herstel standaard</button>
+</form>
+</body>
+</html>`;
+}
+
+app.get('/beheer', (req, res) => {
+  const pw = req.query.pw || req.headers['x-beheer-pw'];
+  if (pw !== BEHEER_PASSWORD) {
+    return res.send(`<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Beheer</title></head>
+<body>
+<div class="pw-form" style="font-family:system-ui;max-width:360px;margin:80px auto;background:#fff;padding:32px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+<h2>🔒 Inloggen</h2>
+<form method="GET" action="/beheer">
+  <input type="password" name="pw" placeholder="Wachtwoord" style="width:100%;padding:10px;border:1px solid #dde3ef;border-radius:6px;font-size:15px;box-sizing:border-box;margin-bottom:12px">
+  <button type="submit" style="background:#4273bd;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:15px;cursor:pointer">Inloggen</button>
+</form>
+</div></body></html>`);
+  }
+  res.send(beheerHtml(customSystemPrompt || DEFAULT_SYSTEM_PROMPT));
+});
+
+app.post('/beheer', express.urlencoded({ extended: true }), (req, res) => {
+  const pw = req.query.pw || req.body.pw || req.headers['x-beheer-pw'];
+  if (pw !== BEHEER_PASSWORD) return res.status(403).send('Geen toegang');
+
+  if (req.body.action === 'reset') {
+    customSystemPrompt = null;
+    console.log('🔄 System prompt hersteld naar standaard');
+    return res.send(beheerHtml(DEFAULT_SYSTEM_PROMPT,
+      '<div class="msg ok">✅ Prompt hersteld naar standaard.</div>'));
+  }
+
+  const nieuw = (req.body.prompt || '').trim();
+  if (!nieuw) return res.send(beheerHtml(customSystemPrompt || DEFAULT_SYSTEM_PROMPT,
+    '<div class="msg err">❌ Prompt mag niet leeg zijn.</div>'));
+
+  customSystemPrompt = nieuw;
+  console.log('✏️  System prompt bijgewerkt via beheerpaneel');
+  res.send(beheerHtml(customSystemPrompt,
+    '<div class="msg ok">✅ Prompt opgeslagen en direct actief.</div>'));
+});
 
 // Handmatig endpoint: POST /vivino-refresh
 app.post('/vivino-refresh', async (_req, res) => {

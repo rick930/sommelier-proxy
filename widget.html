@@ -124,18 +124,132 @@
   }
   #s-close:hover { color: var(--s-text); }
 
+  /* ── In iframe: geen eigen backdrop, modal vult het paneel volledig ── */
+  body.in-iframe { background: transparent; }
+  body.in-iframe .demo-hint,
+  body.in-iframe #s-trigger,
+  body.in-iframe #s-close { display: none !important; }
+  body.in-iframe #s-overlay {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    opacity: 1;
+    pointer-events: all;
+    align-items: stretch;
+    justify-content: stretch;
+    padding: 0;
+  }
+  body.in-iframe #s-overlay.open { opacity: 1; }
+  body.in-iframe #s-modal {
+    width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    padding: 16px 28px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Logo verborgen in iframe — overlay-header is al herkenbaar */
+  body.in-iframe #s-header-logo { display: none !important; }
+  /* Ruimte boven de progress bar zodat het druifje niet wegknipt */
+  body.in-iframe .s-progress { padding-top: 18px; padding-right: 48px; margin-bottom: 18px; }
+  /* ── iframe-header: vaste balk bovenaan, scrollt nooit mee ── */
+  #s-iframe-header { display: none; } /* verborgen in standalone modus */
+
+  body.in-iframe #s-iframe-header {
+    display: flex;
+    flex-shrink: 0;          /* neemt geen deel aan scrollen */
+    align-items: center;
+    justify-content: flex-end;
+    height: 36px;
+    background: var(--s-bg);
+    padding: 10px 58px 0 14px;  /* rechts ruimte voor het ✕-kruisje, top om uit te lijnen */
+  }
+
+  /* Opnieuw-knop zit nu in de header — geen absolute/fixed positionering nodig */
+  #s-reset-fixed {
+    display: inline-block;
+    background: none;
+    border: none;
+    font-size: 13px;
+    color: var(--s-muted);
+    cursor: pointer;
+    font-family: 'Sarabun', sans-serif;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    transition: color .15s;
+    white-space: nowrap;
+    padding: 0;
+  }
+  #s-reset-fixed:hover { color: var(--s-text); }
+
+  /* Verberg Opnieuw op stap 0, loading en error */
+  body.in-iframe.step-0 #s-reset-fixed,
+  body.in-iframe.step-6 #s-reset-fixed,
+  body.in-iframe.step-8 #s-reset-fixed { visibility: hidden; }
+
+  /* Nav-reset verbergen in iframe — de header-knop vervangt hem */
+  body.in-iframe .s-btn-reset { display: none; }
+
+  /* #s-modal: vaste container — scrollt NIET */
+  body.in-iframe #s-modal {
+    padding: 0 !important;
+    overflow: hidden;
+    min-height: 0;
+  }
+  /* #s-root: enige scrollende laag */
+  body.in-iframe #s-root {
+    flex: 1; overflow-y: auto; min-height: 0;
+    padding: 4px 28px 0;
+    scrollbar-width: none; -ms-overflow-style: none;
+  }
+  body.in-iframe #s-root::-webkit-scrollbar { display: none; }
+
+  /* Nav (Vorige / Volgende) plakt sticky onderaan de scroll-container */
+  body.in-iframe .s-nav {
+    position: sticky;
+    bottom: 0;
+    background: var(--s-bg);
+    z-index: 2;
+    margin-top: 8px;
+    padding: 14px 0 22px;
+    border-top: 1px solid var(--s-border);
+  }
+
   /* ── Progress bar ── */
   .s-progress {
     display: flex; gap: 5px;
-    margin-bottom: 30px;
+    margin-bottom: 36px;
+    align-items: flex-end;
+    overflow: visible;
   }
   .s-dot {
-    flex: 1; height: 3px; border-radius: 2px;
+    flex: 1; height: 5px; border-radius: 3px;
     background: var(--s-border);
-    transition: background .4s;
+    transition: background .5s, height .3s;
+    position: relative;
   }
-  .s-dot.done  { background: rgba(255,204,0,.4); }
-  .s-dot.active { background: var(--s-yellow); }
+  .s-dot.done {
+    background: linear-gradient(90deg, #c8921a, #e8b830);
+  }
+  .s-dot.active {
+    height: 7px;
+    background: linear-gradient(90deg, #7b2035, #a8293f);
+    box-shadow: 0 2px 8px rgba(123,32,53,.35);
+  }
+  /* Druifje boven actieve stap */
+  .s-dot-grape {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 13px;
+    line-height: 1;
+    pointer-events: none;
+  }
 
   /* ── Step header ── */
   .s-label {
@@ -146,7 +260,7 @@
   .s-title {
     font-size: 24px; color: var(--s-text);
     font-family: 'Sarabun', sans-serif; font-weight: 600;
-    line-height: 1.3; margin-bottom: 6px;
+    line-height: 1.3; margin-top: 0; margin-bottom: 6px;
   }
   .s-sub {
     font-size: 13.5px; color: var(--s-muted);
@@ -337,6 +451,14 @@
     transform: translateY(-1px);
     box-shadow: 0 6px 18px rgba(255,204,0,.5);
   }
+  .s-btn-reset {
+    background: none; border: none; padding: 0;
+    font-size: 12px; color: var(--s-muted);
+    cursor: pointer; font-family: 'Sarabun', sans-serif;
+    text-decoration: underline; text-underline-offset: 2px;
+    transition: color .15s;
+  }
+  .s-btn-reset:hover { color: var(--s-text); }
   .s-btn-next:disabled {
     opacity: .4; cursor: not-allowed; transform: none;
     box-shadow: none;
@@ -530,15 +652,22 @@
 <div id="s-overlay" onclick="S.overlayClick(event)">
   <div id="s-modal">
     <button id="s-close" onclick="S.close()">✕</button>
-    <div style="margin-bottom:24px;padding-top:4px;">
+    <div id="s-header-logo" style="margin-bottom:24px;padding-top:4px;">
       <img src="https://proefgriekenland.nl/wp-content/themes/proef-griekenland/images/logo.svg"
            alt="Proef Griekenland" style="height:52px;">
+    </div>
+    <!-- Header-balk: alleen zichtbaar in iframe-modus, scrollt nooit mee -->
+    <div id="s-iframe-header">
+      <button id="s-reset-fixed" onclick="S.restart()">↺ Opnieuw</button>
     </div>
     <div id="s-root"></div>
   </div>
 </div>
 
 <script>
+// In iframe? Verberg eigen sluitknop — parent overlay heeft die al
+if (window !== window.top) document.body.classList.add('in-iframe');
+
 /* ════════════════════════════════════════════════════════
    CONFIGURATIE — pas deze regels aan
 ════════════════════════════════════════════════════════ */
@@ -664,6 +793,9 @@ const S = {
   },
 
   render() {
+    document.body.classList.toggle('step-0', state.step === 0);
+    document.body.classList.toggle('step-6', state.step === 6);
+    document.body.classList.toggle('step-8', state.step === 8);
     const root = document.getElementById('s-root');
     root.innerHTML = '';
     const el = document.createElement('div');
@@ -687,7 +819,8 @@ const S = {
     if (state.step > 4) return '';
     const dots = Array.from({length: TOTAL_STEPS}, (_, i) => {
       const cls = i < state.step ? 'done' : i === state.step ? 'active' : '';
-      return `<div class="s-dot ${cls}"></div>`;
+      const grape = i === state.step ? '<span class="s-dot-grape">🍇</span>' : '';
+      return `<div class="s-dot ${cls}">${grape}</div>`;
     }).join('');
     return `<div class="s-progress">${dots}</div>`;
   },
@@ -696,11 +829,11 @@ const S = {
     const n = state.step;
     const headers = [
       ['Stap 1 van 6', 'Wat drink jij normaal graag?',    'Kies de wijnen die je al kent, ook meer dan één mag.'],
-      ['Stap 2 van 6', 'Welk type wijn wil je?',          'Kies één optie, of laat je verrassen'],
-      ['Stap 3 van 6', 'Voor welke gelegenheid?',         'Kies wat het best bij de situatie past'],
-      ['Stap 4 van 6', 'Wat eten jullie erbij?',          'Kies een gerecht, of kies voor wijn zonder eten'],
-      ['Stap 5 van 6', 'Jouw smaakprofiel',               'Schuif de balkjes naar jouw voorkeur'],
-      ['Stap 6 van 6', 'Wat is je budget?',               'Per fles wijn'],
+      ['Stap 2 van 6', 'Welk type wijn wil je?',          'Kies één optie, of laat je verrassen.'],
+      ['Stap 3 van 6', 'Voor welke gelegenheid?',         'Kies wat het best bij de situatie past.'],
+      ['Stap 4 van 6', 'Wat eten jullie erbij?',          'Kies een gerecht, of kies voor wijn zonder eten.'],
+      ['Stap 5 van 6', 'Jouw smaakprofiel',               'Schuif de balkjes naar jouw voorkeur.'],
+      ['Stap 6 van 6', 'Wat is je budget?',               'Per fles wijn.'],
     ];
     const [label, title, sub] = headers[n];
     const hdr = `<p class="s-label">${label}</p><h2 class="s-title">${title}</h2><p class="s-sub">${sub}</p>`;
@@ -862,7 +995,14 @@ const S = {
       </button>`;
     }
 
-    return `<div class="s-nav">${backBtn || '<span></span>'}<div style="display:flex;align-items:center;gap:14px">${rightSide}</div></div>`;
+    const resetBtn = n > 0
+      ? `<button class="s-btn-reset" onclick="S.restart()">↺ Opnieuw</button>`
+      : '';
+    const leftSide = (backBtn && resetBtn)
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:5px">${backBtn}${resetBtn}</div>`
+      : (backBtn || resetBtn || '<span></span>');
+
+    return `<div class="s-nav">${leftSide}<div style="display:flex;align-items:center;gap:14px">${rightSide}</div></div>`;
   },
 
   _canProceed() {
@@ -956,6 +1096,8 @@ const S = {
       const data = await res.json();
       state.results = data;
       state.step = 7;
+      // Sla resultaten op zodat heropenen de aanbevelingen toont
+      try { sessionStorage.setItem('pg_som_results', JSON.stringify(data)); } catch(e) {}
     } catch (err) {
       console.error(err);
       state.step = 8;
@@ -978,7 +1120,7 @@ const S = {
       <div class="s-wine-card${i === 0 ? ' tip-1' : ''}">
         <div class="s-card-label ${tipClasses[i] || tipClasses[2]}">${tipLabels[i] || `Tip ${i+1}`}</div>
         <div class="s-wc-body">
-          ${r.image ? `<div class="s-wc-img"><img src="${r.image}" alt="${r.name}" loading="lazy"></div>` : ''}
+          ${r.image ? `<div class="s-wc-img"><img src="${r.image}" alt="${r.name}"></div>` : ''}
           <div class="s-wc-content">
             <div class="s-wc-top">
               <div class="s-wc-name">${r.name}</div>
@@ -996,8 +1138,8 @@ const S = {
             <div class="s-wc-why">${r.why}</div>
             ${r.grape_explanation ? `<div class="s-wc-grape-exp">💡 ${r.grape_explanation}</div>` : ''}
             <div class="s-wc-actions">
-              ${r.url ? `<a href="${r.url}" target="_blank" class="s-wc-btn s-wc-btn-primary">Bekijk wijn →</a>` : ''}
-              ${r.add_to_cart_url ? `<a href="${r.add_to_cart_url}" class="s-wc-btn s-wc-btn-secondary">🛒 In winkelwagen</a>` : ''}
+              ${r.url && r.url.startsWith('http') ? `<a href="${r.url}" target="_parent" class="s-wc-btn s-wc-btn-primary">Bekijk wijn →</a>` : ''}
+              ${r.add_to_cart_url && r.add_to_cart_url.startsWith('http') ? `<a href="${r.add_to_cart_url}" target="_parent" class="s-wc-btn s-wc-btn-secondary">🛒 In winkelwagen</a>` : ''}
             </div>
           </div>
         </div>
@@ -1022,6 +1164,7 @@ const S = {
   },
 
   restart() {
+    try { sessionStorage.removeItem('pg_som_results'); } catch(e) {}
     Object.assign(state, {
       step:0, familiar: new Set(),
       wijntype:null, occasion:null, food:null,
@@ -1031,6 +1174,15 @@ const S = {
     this.render();
   },
 };
+
+// Herstel vorige resultaten indien beschikbaar (survives page navigation)
+try {
+  const saved = sessionStorage.getItem('pg_som_results');
+  if (saved) { state.results = JSON.parse(saved); state.step = 7; }
+} catch(e) {}
+
+// In iframe: direct openen, geen trigger-knop nodig
+if (window !== window.top) S.open();
 
 /* ── Budget slider binding (outside normal _bindSliders because step 5) ── */
 document.getElementById('s-root').addEventListener('input', e => {

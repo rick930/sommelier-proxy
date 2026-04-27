@@ -9,9 +9,49 @@
  * Code Snippets → PHP → Run everywhere → activeren
  */
 
-define( 'SOMMELIER_PROXY_URL', 'http://localhost:3000' );  // ← aanpassen naar live URL
+define( 'SOMMELIER_PROXY_URL', 'https://creative-fascination-production-30b1.up.railway.app' );
 
 add_action( 'wp_footer', 'proefgriekenland_sommelier_widget' );
+
+/**
+ * Shortcode [sommelier_cta] — ghost CTA-knop die de widget opent
+ * Gebruik in de pagina-editor naast een bestaande knop
+ * Optioneel: [sommelier_cta tekst="Vraag de sommelier"]
+ */
+add_shortcode( 'sommelier_cta', 'proefgriekenland_sommelier_cta' );
+
+function proefgriekenland_sommelier_cta( $atts ) {
+    $atts  = shortcode_atts( [ 'tekst' => 'Vraag de sommelier' ], $atts );
+    $tekst = esc_html( $atts['tekst'] );
+    return '
+        <style>
+        .pg-som-cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 22px;
+            background: transparent;
+            color: #fff;
+            border: 2px solid rgba(255,255,255,.85);
+            border-radius: 50px;
+            font-family: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s, border-color .2s, color .2s;
+            text-decoration: none;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .pg-som-cta-btn:hover {
+            background: rgba(255,255,255,.15);
+            border-color: #fff;
+        }
+        </style>
+        <button class="pg-som-cta-btn" onclick="var b=document.getElementById(\'pg-som-btn\');if(b)b.click();">
+            🍷 ' . $tekst . '
+        </button>';
+}
 
 function proefgriekenland_sommelier_widget() {
     $proxy = esc_url( SOMMELIER_PROXY_URL );
@@ -92,10 +132,10 @@ function proefgriekenland_sommelier_widget() {
     /* ── Widget-paneel ───────────────────────────────── */
     #pg-som-panel {
         position: relative;
-        width: 480px;
+        width: 600px;
         max-width: 100vw;
-        height: 92vh;
-        max-height: 820px;
+        height: 78vh;
+        max-height: 720px;
         background: #fff;
         border-radius: 18px 18px 0 0;
         overflow: hidden;
@@ -141,20 +181,31 @@ function proefgriekenland_sommelier_widget() {
         height: 100%;
     }
 
+    /* reCAPTCHA badge verbergen */
+    .grecaptcha-badge { display: none !important; }
+
     /* Mobiel: full-screen, geen marge */
     @media (max-width: 600px) {
         #pg-som-btn {
-            bottom: 18px;
-            right: 18px;
+            display: flex !important;
+            bottom: 18px !important;
+            right: 18px !important;
             padding: 11px 16px 11px 13px;
             font-size: 14px;
+            z-index: 99998 !important;
+        }
+        #pg-som-overlay {
+            padding: 0;
+            align-items: flex-end;
+            justify-content: center;
         }
         #pg-som-panel {
             width: 100vw;
-            height: 95vh;
+            height: 95dvh;
             max-height: none;
             border-radius: 18px 18px 0 0;
             margin-right: 0;
+            margin-bottom: 0;
         }
     }
     </style>
@@ -216,7 +267,65 @@ function proefgriekenland_sommelier_widget() {
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && overlay.classList.contains('open')) close();
         });
+
+        // ── Hero CTA-knop injecteren naast bestaande knop ──────────────
+        function injectHeroBtn() {
+            if (document.getElementById('pg-som-hero-btn')) return;
+            var existingBtn = document.querySelector('.header__image a.button--lightblue');
+            if (!existingBtn) return;
+
+            var heroBtn = document.createElement('button');
+            heroBtn.id = 'pg-som-hero-btn';
+            heroBtn.textContent = '🍷 Vraag de sommelier';
+            heroBtn.addEventListener('click', open);
+            existingBtn.insertAdjacentElement('afterend', heroBtn);
+
+            // Kopieer exact dezelfde afmetingen van de bestaande knop
+            var cs = window.getComputedStyle(existingBtn);
+            heroBtn.style.paddingTop    = cs.paddingTop;
+            heroBtn.style.paddingBottom = cs.paddingBottom;
+            heroBtn.style.paddingLeft   = cs.paddingLeft;
+            heroBtn.style.paddingRight  = cs.paddingRight;
+            heroBtn.style.fontSize      = cs.fontSize;
+            heroBtn.style.fontWeight    = cs.fontWeight;
+            heroBtn.style.lineHeight    = cs.lineHeight;
+            heroBtn.style.letterSpacing = cs.letterSpacing;
+            heroBtn.style.borderRadius  = cs.borderRadius;
+            heroBtn.style.height        = cs.height;
+            heroBtn.style.marginLeft    = '12px';
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', injectHeroBtn);
+        } else {
+            injectHeroBtn();
+        }
     })();
     </script>
+    <style>
+    #pg-som-hero-btn {
+        /* Padding, font-size, font-weight en border-radius worden via JS
+           gekopieerd van .button--lightblue zodat ze altijd exact matchen */
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: transparent;
+        color: #fff;
+        border: 2px solid rgba(255,255,255,.85);
+        font-family: inherit;
+        cursor: pointer;
+        transition: background .2s, border-color .2s;
+        white-space: nowrap;
+        vertical-align: middle;
+        box-sizing: border-box;
+    }
+    #pg-som-hero-btn:hover {
+        background: rgba(255,255,255,.18);
+        border-color: #fff;
+    }
+    @media (max-width: 600px) {
+        #pg-som-hero-btn { margin-left: 0 !important; margin-top: 10px; display: flex; }
+    }
+    </style>
     <?php
 }
