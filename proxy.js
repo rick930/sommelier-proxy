@@ -1153,11 +1153,15 @@ async function sendChat(){
   addTyping();
   chatHistory.push({role:'user',content:msg});
   try{
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),55000); // 55s timeout
     const r=await fetch('/beheer/chat',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-beheer-pw':PW},
-      body:JSON.stringify({message:msg,history:chatHistory.slice(-10)})
+      body:JSON.stringify({message:msg,history:chatHistory.slice(-10)}),
+      signal:ctrl.signal
     });
+    clearTimeout(timer);
     const d=await r.json();
     document.getElementById('typing-ind')?.remove();
     if(d.error){addMsg('bot','❌ Fout: '+d.error);}
@@ -1168,7 +1172,11 @@ async function sendChat(){
     }
   }catch(e){
     document.getElementById('typing-ind')?.remove();
-    addMsg('bot','❌ Verbindingsfout: '+e.message);
+    if(e.name==='AbortError'){
+      addMsg('bot','⏱️ Time-out — de assistent had te veel context. Probeer een kortere of specifiekere vraag.');
+    } else {
+      addMsg('bot','❌ Verbindingsfout: '+e.message);
+    }
   }
   btn.disabled=false;
   inp.focus();
@@ -1211,9 +1219,15 @@ app.post('/beheer/chat', express.json({ limit: '2mb' }), async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Bericht ontbreekt' });
 
   const currentPrompt = customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
-  // Volledige widget meesturen zodat de assistent complete, werkende code kan teruggeven
+
+  // Stuur de widget-code alleen mee als de vraag daar écht over gaat
+  const widgetKeywords = /widget|html|css|js|javascript|code|kleur|color|knop|button|font|padding|margin|stijl|layout|design|animat|css|icoon|icon|achtergrond|background|tekst|text|border|shadow|radius|flex|grid|mobile|mobiel|responsive|pixel|px|rem|em|opacity|display|position|overflow|style|script|div|span|class|#|\.s-/i;
+  const needsWidget = widgetKeywords.test(message) || history.some(m => m.role === 'user' && widgetKeywords.test(m.content));
+
   let widgetHtml = '';
-  try { widgetHtml = loadWidgetHtml(); } catch (_) {}
+  if (needsWidget) {
+    try { widgetHtml = loadWidgetHtml(); } catch (_) {}
+  }
 
   const systemMsg = `Je bent een beheerassistent voor de Proef Griekenland sommelier widget. Je helpt de beheerder bij het aanpassen van de AI-instructies en de widget-interface.
 
@@ -1221,12 +1235,7 @@ HUIDIGE AI-INSTRUCTIES (system prompt):
 ---
 ${currentPrompt}
 ---
-
-VOLLEDIGE WIDGET HTML/CSS/JS:
----
-${widgetHtml}
----
-
+${needsWidget ? `\nVOLLEDIGE WIDGET HTML/CSS/JS:\n---\n${widgetHtml}\n---\n` : ''}
 Regels:
 - Antwoord altijd in het Nederlands, vriendelijk en bondig
 - Als je de AI-instructies aanpast: geef de VOLLEDIGE nieuwe prompt tussen <PROMPT> en </PROMPT> tags
