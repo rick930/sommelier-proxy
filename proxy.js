@@ -777,7 +777,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f0f4f8;min-heigh
 .topbar .badge{font-size:11px;background:rgba(255,255,255,.2);padding:3px 8px;border-radius:20px;margin-left:auto}
 .wrap{max-width:920px;margin:0 auto;padding:20px}
 .tabs{display:flex;gap:3px;background:#e2e8f0;border-radius:10px;padding:4px;margin-bottom:20px}
-.tab{flex:1;padding:10px 6px;border:none;background:transparent;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;color:#64748b;transition:all .15s;white-space:nowrap}
+.tab{flex:1;padding:10px 6px;border:none;background:transparent;border-radius:7px;cursor:pointer;font-size:13px;font-weight:600;color:#64748b;transition:all .15s;white-space:nowrap}
 .tab.on{background:#fff;color:#4273bd;box-shadow:0 1px 4px rgba(0,0,0,.10)}
 .panel{background:#fff;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
 .panel h2{font-size:15px;margin-bottom:4px;color:#1e293b}
@@ -788,6 +788,7 @@ textarea:focus{border-color:#4273bd}
 .btn{padding:11px 22px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
 .btn-save{background:#4273bd;color:#fff}.btn-save:hover{background:#2f5ca0}
 .btn-reset{background:#e2e8f0;color:#555}.btn-reset:hover{background:#cbd5e1}
+.btn-apply{background:#16a34a;color:#fff;font-size:13px;padding:8px 16px}.btn-apply:hover{background:#15803d}
 .msg{padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:14px;display:flex;align-items:center;gap:8px}
 .msg-ok{background:#dcfce7;color:#166534;border-left:4px solid #22c55e}
 .msg-err{background:#fee2e2;color:#991b1b;border-left:4px solid #ef4444}
@@ -795,11 +796,38 @@ textarea:focus{border-color:#4273bd}
 .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:600;vertical-align:middle}
 .tag-custom{background:#fef9c3;color:#854d0e}
 .tag-orig{background:#f0f4f8;color:#64748b}
+
+/* ── Chat ── */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 180px);min-height:400px}
+.chat-msgs{flex:1;overflow-y:auto;padding:4px 0 16px;display:flex;flex-direction:column;gap:14px}
+.cm{display:flex;gap:10px;align-items:flex-start}
+.cm-user{flex-direction:row-reverse}
+.cm-bubble{max-width:82%;padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.cm-user .cm-bubble{background:#4273bd;color:#fff;border-bottom-right-radius:4px}
+.cm-bot .cm-bubble{background:#f1f5f9;color:#1e293b;border-bottom-left-radius:4px}
+.cm-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;margin-top:2px}
+.cm-user .cm-avatar{background:#dbeafe}
+.cm-bot .cm-avatar{background:#f0fdf4}
+.suggestion{margin-top:10px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;overflow:hidden}
+.suggestion-header{padding:10px 14px;background:#f8fafc;font-size:12px;font-weight:700;color:#475569;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.suggestion-preview{padding:10px 14px;font-family:monospace;font-size:11px;color:#64748b;max-height:120px;overflow:hidden;white-space:pre;line-height:1.5;border-top:1px solid #e2e8f0}
+.chat-input-area{display:flex;gap:8px;align-items:flex-end;padding-top:12px;border-top:1px solid #e2e8f0;margin-top:8px}
+.chat-input-area textarea{margin:0;resize:none;font-family:inherit;font-size:14px;rows:3;flex:1;max-height:120px;border-radius:10px}
+.btn-send{background:#4273bd;color:#fff;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0;align-self:flex-end}
+.btn-send:hover{background:#2f5ca0}
+.btn-send:disabled{background:#94a3b8;cursor:default}
+.typing{display:flex;gap:5px;padding:12px 14px;align-items:center}
+.typing span{width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:bounce .9s infinite}
+.typing span:nth-child(2){animation-delay:.15s}
+.typing span:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+
 @media(max-width:600px){
   .wrap{padding:12px}
   textarea{font-size:11px}
   .btn{padding:10px 16px;font-size:13px}
-  .tab{font-size:13px;padding:9px 4px}
+  .tab{font-size:12px;padding:9px 3px}
+  .chat-wrap{height:calc(100vh - 160px)}
 }
 </style>
 </head>
@@ -812,15 +840,18 @@ textarea:focus{border-color:#4273bd}
 <div class="wrap">
   ${message}
   <div class="tabs">
-    <button class="tab ${activeTab === 'ai' ? 'on' : ''}" onclick="showTab('ai')">🤖 AI-instructies</button>
-    <button class="tab ${activeTab === 'widget' ? 'on' : ''}" onclick="showTab('widget')">🎨 Widget${hasCustomWidget ? ' <span class="tag tag-custom">aangepast</span>' : ''}</button>
+    <button class="tab ${activeTab === 'ai'   ? 'on' : ''}" onclick="showTab('ai')">🤖 AI-instructies</button>
+    <button class="tab ${activeTab === 'widget'? 'on' : ''}" onclick="showTab('widget')">🎨 Widget${hasCustomWidget ? ' <span class="tag tag-custom">✎</span>' : ''}</button>
+    <button class="tab ${activeTab === 'chat' ? 'on' : ''}" onclick="showTab('chat')">💬 Assistent</button>
   </div>
 
   <!-- ── Tab: AI ── -->
   <div id="pane-ai" ${activeTab !== 'ai' ? 'style="display:none"' : ''}>
     <div class="panel">
       <h2>AI-instructies</h2>
-      <p>Bepaalt hoe de sommelier praat, welke wijnvaktaal hij gebruikt en hoe hij wijnen beschrijft.<br>Wijzigingen zijn <strong>direct actief</strong> en <strong>permanent opgeslagen</strong> (ook na herstarts).</p>
+      <p>Bepaalt hoe de sommelier praat, welke wijnvaktaal hij gebruikt en hoe hij wijnen beschrijft.<br>
+         Wijzigingen zijn <strong>direct actief</strong> en <strong>permanent opgeslagen</strong>.<br>
+         Tip: gebruik de <strong>💬 Assistent</strong> tab om wijzigingen te laten voorstellen.</p>
       <form method="POST" action="/beheer?pw=${pwEnc}">
         <input type="hidden" name="tab" value="prompt">
         <textarea name="prompt" rows="22">${promptEscaped}</textarea>
@@ -836,7 +867,9 @@ textarea:focus{border-color:#4273bd}
   <div id="pane-widget" ${activeTab !== 'widget' ? 'style="display:none"' : ''}>
     <div class="panel">
       <h2>Widget HTML/CSS/JS${hasCustomWidget ? ' <span class="tag tag-custom">aangepaste versie actief</span>' : ' <span class="tag tag-orig">origineel</span>'}</h2>
-      <p>De volledige broncode van het chatvenster. Pas teksten, kleuren, stappen en gedrag aan.<br>Wijzigingen zijn <strong>direct actief</strong> en <strong>permanent opgeslagen</strong>.</p>
+      <p>De volledige broncode van het chatvenster. Pas teksten, kleuren, stappen en gedrag aan.<br>
+         Wijzigingen zijn <strong>direct actief</strong> en <strong>permanent opgeslagen</strong>.<br>
+         Tip: gebruik de <strong>💬 Assistent</strong> tab om wijzigingen te laten voorstellen.</p>
       <form method="POST" action="/beheer?pw=${pwEnc}" id="wf">
         <input type="hidden" name="tab" value="widget">
         <div id="wload" class="loader">⏳ Widget-code laden…</div>
@@ -848,17 +881,38 @@ textarea:focus{border-color:#4273bd}
       </form>
     </div>
   </div>
+
+  <!-- ── Tab: Assistent ── -->
+  <div id="pane-chat" ${activeTab !== 'chat' ? 'style="display:none"' : ''}>
+    <div class="panel chat-wrap">
+      <div id="chat-msgs" class="chat-msgs">
+        <div class="cm cm-bot">
+          <div class="cm-avatar">🍷</div>
+          <div class="cm-bubble">Hoi! Ik ben de beheerassistent. Vertel me wat je wil aanpassen aan de sommelier of de widget — ik stel de wijziging voor en jij klikt op <strong>Toepassen</strong>.<br><br>Voorbeelden:<br>• "Maak de toon wat informeler"<br>• "Voeg een vraag toe over biologische wijn"<br>• "Verander de knoptekst op stap 2"<br>• "Maak de achtergrondkleur iets warmer"</div>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <textarea id="chat-in" placeholder="Wat wil je aanpassen?" rows="2" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"></textarea>
+        <button class="btn-send" id="chat-send" onclick="sendChat()">↑</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 <script>
 const PW='${pwEnc}';
 let wLoaded=false;
+const TABS=['ai','widget','chat'];
+
 function showTab(t){
-  ['ai','widget'].forEach(id=>{
+  TABS.forEach(id=>{
     document.getElementById('pane-'+id).style.display=id===t?'':'none';
   });
-  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',['ai','widget'][i]===t));
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',TABS[i]===t));
   if(t==='widget'&&!wLoaded)loadWidget();
+  if(t==='chat')document.getElementById('chat-in').focus();
 }
+
 function loadWidget(){
   fetch('/beheer/widget-source?pw='+PW)
     .then(r=>{if(!r.ok)throw new Error(r.status);return r.text();})
@@ -872,6 +926,104 @@ function loadWidget(){
     .catch(e=>{document.getElementById('wload').textContent='❌ Laden mislukt: '+e.message;});
 }
 ${activeTab === 'widget' ? 'loadWidget();' : ''}
+
+/* ── Chat ── */
+let chatHistory=[];
+
+function addMsg(role,text){
+  const msgs=document.getElementById('chat-msgs');
+  const isUser=role==='user';
+  const wrap=document.createElement('div');
+  wrap.className='cm '+(isUser?'cm-user':'cm-bot');
+  wrap.innerHTML=\`<div class="cm-avatar">\${isUser?'👤':'🍷'}</div><div class="cm-bubble">\${esc(text)}</div>\`;
+  msgs.appendChild(wrap);
+  msgs.scrollTop=msgs.scrollHeight;
+  return wrap;
+}
+
+function addTyping(){
+  const msgs=document.getElementById('chat-msgs');
+  const wrap=document.createElement('div');
+  wrap.className='cm cm-bot';
+  wrap.id='typing-ind';
+  wrap.innerHTML='<div class="cm-avatar">🍷</div><div class="cm-bubble"><div class="typing"><span></span><span></span><span></span></div></div>';
+  msgs.appendChild(wrap);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function addSuggestion(parent, suggestion){
+  const labels={'prompt':'🤖 AI-instructies','widget':'🎨 Widget HTML'};
+  const el=document.createElement('div');
+  el.className='suggestion';
+  const preview=suggestion.content.slice(0,300).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  el.innerHTML=\`
+    <div class="suggestion-header">
+      <span>\${labels[suggestion.type]||suggestion.type} — voorstel klaar</span>
+      <button class="btn btn-apply" onclick="applySuggestion(this,\${JSON.stringify(suggestion).replace(/'/g,'&#39;')})">✓ Toepassen</button>
+    </div>
+    <div class="suggestion-preview">\${preview}\${suggestion.content.length>300?'\\n…':''}</div>\`;
+  parent.querySelector('.cm-bubble').appendChild(el);
+}
+
+function applySuggestion(btn, suggestion){
+  btn.disabled=true;
+  btn.textContent='⏳ Bezig…';
+  fetch('/beheer/apply',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-beheer-pw':PW},
+    body:JSON.stringify({type:suggestion.type,content:suggestion.content})
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    if(d.ok){
+      btn.textContent='✅ Toegepast!';
+      btn.style.background='#15803d';
+      // Update live textarea als die open staat
+      if(suggestion.type==='prompt'){
+        const ta=document.querySelector('#pane-ai textarea[name=prompt]');
+        if(ta)ta.value=suggestion.content;
+      } else if(suggestion.type==='widget'&&wLoaded){
+        document.getElementById('wta').value=suggestion.content;
+      }
+    } else {
+      btn.textContent='❌ Mislukt';btn.disabled=false;
+    }
+  })
+  .catch(()=>{btn.textContent='❌ Fout';btn.disabled=false;});
+}
+
+function esc(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+async function sendChat(){
+  const inp=document.getElementById('chat-in');
+  const msg=inp.value.trim();
+  if(!msg)return;
+  const btn=document.getElementById('chat-send');
+  inp.value='';btn.disabled=true;
+  addMsg('user',msg);
+  addTyping();
+  chatHistory.push({role:'user',content:msg});
+  try{
+    const r=await fetch('/beheer/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-beheer-pw':PW},
+      body:JSON.stringify({message:msg,history:chatHistory.slice(-10)})
+    });
+    const d=await r.json();
+    document.getElementById('typing-ind')?.remove();
+    if(d.error){addMsg('bot','❌ Fout: '+d.error);}
+    else{
+      const botWrap=addMsg('bot',d.reply);
+      chatHistory.push({role:'assistant',content:d.reply});
+      (d.suggestions||[]).forEach(s=>addSuggestion(botWrap,s));
+    }
+  }catch(e){
+    document.getElementById('typing-ind')?.remove();
+    addMsg('bot','❌ Verbindingsfout: '+e.message);
+  }
+  btn.disabled=false;
+  inp.focus();
+}
 </script>
 </body></html>`;
 }
@@ -892,6 +1044,96 @@ app.get('/beheer/widget-source', (req, res) => {
   } catch (err) {
     res.status(500).send('Fout: ' + err.message);
   }
+});
+
+// POST /beheer/chat — assistent in beheerpaneel
+app.post('/beheer/chat', express.json({ limit: '512kb' }), async (req, res) => {
+  const pw = req.headers['x-beheer-pw'] || req.body.pw;
+  if (pw !== BEHEER_PASSWORD) return res.status(403).json({ error: 'Geen toegang' });
+
+  const { message, history = [] } = req.body;
+  if (!message) return res.status(400).json({ error: 'Bericht ontbreekt' });
+
+  const currentPrompt = customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
+  // Stuur alleen de eerste 4000 tekens van de widget mee (voldoende voor context)
+  let widgetSnippet = '';
+  try { widgetSnippet = loadWidgetHtml().slice(0, 4000); } catch (_) {}
+
+  const systemMsg = `Je bent een beheerassistent voor de Proef Griekenland sommelier widget. Je helpt de beheerder bij het aanpassen van de AI-instructies en de widget-interface.
+
+HUIDIGE AI-INSTRUCTIES (system prompt):
+---
+${currentPrompt}
+---
+
+WIDGET HTML (eerste deel):
+---
+${widgetSnippet}
+...
+---
+
+Regels:
+- Antwoord altijd in het Nederlands, vriendelijk en bondig
+- Als je de AI-instructies aanpast: geef de VOLLEDIGE nieuwe prompt tussen <PROMPT> en </PROMPT> tags
+- Als je de widget aanpast: geef de VOLLEDIGE nieuwe widget HTML tussen <WIDGET> en </WIDGET> tags
+- Leg in 1-2 zinnen uit wat je hebt veranderd — BUITEN de tags
+- Stel nooit beide tegelijk voor, tenzij expliciet gevraagd
+- Als je alleen uitleg geeft zonder aanpassing, is dat ook prima`;
+
+  try {
+    const response = await anthropic.messages.create({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 8000,
+      system:     systemMsg,
+      messages:   [
+        ...history.map(m => ({ role: m.role, content: m.content })),
+        { role: 'user', content: message },
+      ],
+    });
+
+    const raw = response.content[0].text;
+
+    // Haal suggesties eruit
+    const suggestions = [];
+    const promptMatch = raw.match(/<PROMPT>([\s\S]*?)<\/PROMPT>/);
+    const widgetMatch = raw.match(/<WIDGET>([\s\S]*?)<\/WIDGET>/);
+    if (promptMatch) suggestions.push({ type: 'prompt', content: promptMatch[1].trim() });
+    if (widgetMatch) suggestions.push({ type: 'widget', content: widgetMatch[1].trim() });
+
+    // Verwijder tags uit de zichtbare reply
+    const reply = raw
+      .replace(/<PROMPT>[\s\S]*?<\/PROMPT>/g, '')
+      .replace(/<WIDGET>[\s\S]*?<\/WIDGET>/g, '')
+      .trim();
+
+    console.log(`💬 Beheer chat: "${message.slice(0,60)}" → ${suggestions.length} suggesties`);
+    res.json({ reply, suggestions });
+  } catch (err) {
+    console.error('Chat fout:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /beheer/apply — sla suggestie van assistent direct op
+app.post('/beheer/apply', express.json({ limit: '4mb' }), (req, res) => {
+  const pw = req.headers['x-beheer-pw'] || req.body.pw;
+  if (pw !== BEHEER_PASSWORD) return res.status(403).json({ error: 'Geen toegang' });
+
+  const { type, content } = req.body;
+  if (!content) return res.status(400).json({ error: 'Inhoud ontbreekt' });
+
+  if (type === 'prompt') {
+    customSystemPrompt = content;
+    saveSettings();
+    console.log('✏️  AI-instructies toegepast via assistent');
+    return res.json({ ok: true });
+  }
+  if (type === 'widget') {
+    saveWidgetHtml(content);
+    console.log('🎨 Widget toegepast via assistent');
+    return res.json({ ok: true });
+  }
+  res.status(400).json({ error: 'Onbekend type: ' + type });
 });
 
 // POST /beheer — opslaan
