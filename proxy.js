@@ -14,7 +14,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
 
 const app  = express();
 const port = process.env.PORT || 3000;
@@ -57,8 +58,74 @@ Verzin NOOIT URLs of prijzen — die voegen wij zelf toe op basis van product_id
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/* ════════════════════════════════════════════════════════
+   Persistente opslag — Railway Volume (/data) of lokale map
+════════════════════════════════════════════════════════ */
+const DATA_DIR = process.env.DATA_DIR || '/data';
+
+function ensureDataDir() {
+  try { if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true }); } catch (_) {}
+}
+
+function loadSettings() {
+  try {
+    const file = join(DATA_DIR, 'settings.json');
+    if (existsSync(file)) {
+      const data = JSON.parse(readFileSync(file, 'utf8'));
+      if (data.systemPrompt) customSystemPrompt = data.systemPrompt;
+      console.log('📂 Instellingen geladen uit', file);
+    }
+  } catch (err) {
+    console.warn('⚠️  Kon instellingen niet laden:', err.message);
+  }
+}
+
+function saveSettings() {
+  try {
+    ensureDataDir();
+    writeFileSync(
+      join(DATA_DIR, 'settings.json'),
+      JSON.stringify({ systemPrompt: customSystemPrompt }, null, 2),
+      'utf8'
+    );
+  } catch (err) {
+    console.warn('⚠️  Kon instellingen niet opslaan:', err.message);
+  }
+}
+
+function loadWidgetHtml() {
+  const custom = join(DATA_DIR, 'widget.html');
+  if (existsSync(custom)) return readFileSync(custom, 'utf8');
+  return readFileSync(join(__dirname, 'widget.html'), 'utf8');
+}
+
+function saveWidgetHtml(html) {
+  try {
+    ensureDataDir();
+    writeFileSync(join(DATA_DIR, 'widget.html'), html, 'utf8');
+  } catch (err) {
+    console.warn('⚠️  Kon widget.html niet opslaan:', err.message);
+  }
+}
+
+function resetWidgetHtml() {
+  try {
+    const custom = join(DATA_DIR, 'widget.html');
+    if (existsSync(custom)) unlinkSync(custom);
+  } catch (err) {
+    console.warn('⚠️  Kon widget.html niet herstellen:', err.message);
+  }
+}
+
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN || '*' }));
 app.use(express.json());
+
+// widget.html vanuit DATA_DIR als er een aangepaste versie bestaat
+app.get('/widget.html', (_req, res) => {
+  const custom = join(DATA_DIR, 'widget.html');
+  existsSync(custom) ? res.sendFile(custom) : res.sendFile(join(__dirname, 'widget.html'));
+});
+
 app.use(express.static(__dirname));
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -663,84 +730,214 @@ async function refreshVivinoScores() {
 ════════════════════════════════════════════════════════ */
 const BEHEER_PASSWORD = process.env.BEHEER_PASSWORD || 'sommelier';
 
-function beheerHtml(prompt, message = '') {
-  const huidig = prompt.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function loginHtml() {
+  return `<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sommelier Beheer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f0f4f8;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#fff;padding:36px;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.10);width:100%;max-width:360px;margin:20px}
+.logo{font-size:32px;text-align:center;margin-bottom:8px}
+h2{text-align:center;font-size:20px;margin-bottom:4px;color:#1e293b}
+.sub{text-align:center;font-size:13px;color:#94a3b8;margin-bottom:24px}
+input{width:100%;padding:12px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:15px;margin-bottom:14px;outline:none;transition:border .15s}
+input:focus{border-color:#4273bd}
+button{width:100%;padding:12px;background:#4273bd;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer}
+button:hover{background:#2f5ca0}
+</style></head>
+<body><div class="card">
+<div class="logo">🍷</div>
+<h2>Beheerpaneel</h2>
+<p class="sub">Proef Griekenland Sommelier</p>
+<form method="GET" action="/beheer">
+  <input type="password" name="pw" placeholder="Wachtwoord" autofocus>
+  <button type="submit">Inloggen →</button>
+</form>
+</div></body></html>`;
+}
+
+function beheerHtml({ pw = '', activeTab = 'ai', message = '' } = {}) {
+  const promptEscaped = (customSystemPrompt || DEFAULT_SYSTEM_PROMPT)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const pwEnc = encodeURIComponent(pw);
+  const hasCustomWidget = existsSync(join(DATA_DIR, 'widget.html'));
+
   return `<!DOCTYPE html>
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sommelier Beheer</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 860px; margin: 40px auto; padding: 0 20px; background: #f5f7fb; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  p.sub { color: #666; font-size: 14px; margin-bottom: 24px; }
-  label { font-weight: 600; display: block; margin-bottom: 6px; }
-  textarea { width: 100%; height: 420px; font-family: monospace; font-size: 13px; padding: 12px;
-             border: 1px solid #dde3ef; border-radius: 8px; box-sizing: border-box; resize: vertical; }
-  .btn { background: #4273bd; color: #fff; border: none; padding: 12px 28px; border-radius: 8px;
-         font-size: 15px; cursor: pointer; margin-top: 12px; }
-  .btn:hover { background: #2f5ca0; }
-  .btn-reset { background: #888; margin-left: 10px; }
-  .msg { padding: 10px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
-  .msg.ok { background: #d4edda; color: #155724; }
-  .msg.err { background: #f8d7da; color: #721c24; }
-  .pw-form { background: #fff; padding: 32px; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,.08); max-width: 360px; margin: 80px auto; }
-  .pw-form h2 { margin-top: 0; }
-  .pw-form input { width: 100%; padding: 10px; border: 1px solid #dde3ef; border-radius: 6px; font-size: 15px; box-sizing: border-box; margin-bottom: 12px; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f0f4f8;min-height:100vh}
+.topbar{background:#4273bd;color:#fff;padding:14px 20px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:17px;font-weight:700}
+.topbar .badge{font-size:11px;background:rgba(255,255,255,.2);padding:3px 8px;border-radius:20px;margin-left:auto}
+.wrap{max-width:920px;margin:0 auto;padding:20px}
+.tabs{display:flex;gap:3px;background:#e2e8f0;border-radius:10px;padding:4px;margin-bottom:20px}
+.tab{flex:1;padding:10px 6px;border:none;background:transparent;border-radius:7px;cursor:pointer;font-size:14px;font-weight:600;color:#64748b;transition:all .15s;white-space:nowrap}
+.tab.on{background:#fff;color:#4273bd;box-shadow:0 1px 4px rgba(0,0,0,.10)}
+.panel{background:#fff;border-radius:14px;padding:22px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.panel h2{font-size:15px;margin-bottom:4px;color:#1e293b}
+.panel p{font-size:13px;color:#94a3b8;margin-bottom:16px;line-height:1.5}
+textarea{width:100%;font-family:'Menlo','Monaco',monospace;font-size:12px;padding:13px;border:1.5px solid #e2e8f0;border-radius:8px;resize:vertical;line-height:1.6;color:#334155;outline:none;transition:border .15s}
+textarea:focus{border-color:#4273bd}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn{padding:11px 22px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-save{background:#4273bd;color:#fff}.btn-save:hover{background:#2f5ca0}
+.btn-reset{background:#e2e8f0;color:#555}.btn-reset:hover{background:#cbd5e1}
+.msg{padding:12px 16px;border-radius:8px;margin-bottom:18px;font-size:14px;display:flex;align-items:center;gap:8px}
+.msg-ok{background:#dcfce7;color:#166534;border-left:4px solid #22c55e}
+.msg-err{background:#fee2e2;color:#991b1b;border-left:4px solid #ef4444}
+.loader{color:#94a3b8;font-size:13px;text-align:center;padding:28px 0}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;margin-left:8px;font-weight:600;vertical-align:middle}
+.tag-custom{background:#fef9c3;color:#854d0e}
+.tag-orig{background:#f0f4f8;color:#64748b}
+@media(max-width:600px){
+  .wrap{padding:12px}
+  textarea{font-size:11px}
+  .btn{padding:10px 16px;font-size:13px}
+  .tab{font-size:13px;padding:9px 4px}
+}
 </style>
 </head>
 <body>
-<h1>🍷 Sommelier Beheerpaneel</h1>
-<p class="sub">Pas de system prompt aan. Wijzigingen zijn direct actief (tot de volgende herstart).</p>
-${message}
-<form method="POST" action="/beheer">
-  <input type="hidden" name="action" value="save">
-  <label>System prompt</label>
-  <textarea name="prompt">${huidig}</textarea>
-  <br>
-  <button class="btn" type="submit">💾 Opslaan</button>
-  <button class="btn btn-reset" type="submit" name="action" value="reset">↺ Herstel standaard</button>
-</form>
-</body>
-</html>`;
+<div class="topbar">
+  <span style="font-size:20px">🍷</span>
+  <h1>Beheerpaneel</h1>
+  <span class="badge">Proef Griekenland</span>
+</div>
+<div class="wrap">
+  ${message}
+  <div class="tabs">
+    <button class="tab ${activeTab === 'ai' ? 'on' : ''}" onclick="showTab('ai')">🤖 AI-instructies</button>
+    <button class="tab ${activeTab === 'widget' ? 'on' : ''}" onclick="showTab('widget')">🎨 Widget${hasCustomWidget ? ' <span class="tag tag-custom">aangepast</span>' : ''}</button>
+  </div>
+
+  <!-- ── Tab: AI ── -->
+  <div id="pane-ai" ${activeTab !== 'ai' ? 'style="display:none"' : ''}>
+    <div class="panel">
+      <h2>AI-instructies</h2>
+      <p>Bepaalt hoe de sommelier praat, welke wijnvaktaal hij gebruikt en hoe hij wijnen beschrijft.<br>Wijzigingen zijn <strong>direct actief</strong> en <strong>permanent opgeslagen</strong> (ook na herstarts).</p>
+      <form method="POST" action="/beheer?pw=${pwEnc}">
+        <input type="hidden" name="tab" value="prompt">
+        <textarea name="prompt" rows="22">${promptEscaped}</textarea>
+        <div class="btns">
+          <button class="btn btn-save" type="submit" name="action" value="save">💾 Opslaan</button>
+          <button class="btn btn-reset" type="submit" name="action" value="reset" onclick="return confirm('Standaard prompt herstellen?')">↺ Herstel standaard</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Tab: Widget ── -->
+  <div id="pane-widget" ${activeTab !== 'widget' ? 'style="display:none"' : ''}>
+    <div class="panel">
+      <h2>Widget HTML/CSS/JS${hasCustomWidget ? ' <span class="tag tag-custom">aangepaste versie actief</span>' : ' <span class="tag tag-orig">origineel</span>'}</h2>
+      <p>De volledige broncode van het chatvenster. Pas teksten, kleuren, stappen en gedrag aan.<br>Wijzigingen zijn <strong>direct actief</strong> en <strong>permanent opgeslagen</strong>.</p>
+      <form method="POST" action="/beheer?pw=${pwEnc}" id="wf">
+        <input type="hidden" name="tab" value="widget">
+        <div id="wload" class="loader">⏳ Widget-code laden…</div>
+        <textarea name="widgethtml" id="wta" rows="32" style="display:none"></textarea>
+        <div id="wbtns" class="btns" style="display:none">
+          <button class="btn btn-save" type="submit" name="action" value="save">💾 Opslaan</button>
+          <button class="btn btn-reset" type="submit" name="action" value="reset" onclick="return confirm('Terug naar de originele widget?')">↺ Herstel origineel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+const PW='${pwEnc}';
+let wLoaded=false;
+function showTab(t){
+  ['ai','widget'].forEach(id=>{
+    document.getElementById('pane-'+id).style.display=id===t?'':'none';
+  });
+  document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('on',['ai','widget'][i]===t));
+  if(t==='widget'&&!wLoaded)loadWidget();
+}
+function loadWidget(){
+  fetch('/beheer/widget-source?pw='+PW)
+    .then(r=>{if(!r.ok)throw new Error(r.status);return r.text();})
+    .then(html=>{
+      document.getElementById('wta').value=html;
+      document.getElementById('wta').style.display='';
+      document.getElementById('wbtns').style.display='';
+      document.getElementById('wload').style.display='none';
+      wLoaded=true;
+    })
+    .catch(e=>{document.getElementById('wload').textContent='❌ Laden mislukt: '+e.message;});
+}
+${activeTab === 'widget' ? 'loadWidget();' : ''}
+</script>
+</body></html>`;
 }
 
+// GET /beheer — admin panel
 app.get('/beheer', (req, res) => {
   const pw = req.query.pw || req.headers['x-beheer-pw'];
-  if (pw !== BEHEER_PASSWORD) {
-    return res.send(`<!DOCTYPE html><html lang="nl"><head><meta charset="UTF-8"><title>Beheer</title></head>
-<body>
-<div class="pw-form" style="font-family:system-ui;max-width:360px;margin:80px auto;background:#fff;padding:32px;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-<h2>🔒 Inloggen</h2>
-<form method="GET" action="/beheer">
-  <input type="password" name="pw" placeholder="Wachtwoord" style="width:100%;padding:10px;border:1px solid #dde3ef;border-radius:6px;font-size:15px;box-sizing:border-box;margin-bottom:12px">
-  <button type="submit" style="background:#4273bd;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:15px;cursor:pointer">Inloggen</button>
-</form>
-</div></body></html>`);
-  }
-  res.send(beheerHtml(customSystemPrompt || DEFAULT_SYSTEM_PROMPT));
+  if (pw !== BEHEER_PASSWORD) return res.send(loginHtml());
+  res.send(beheerHtml({ pw, activeTab: req.query.tab || 'ai' }));
 });
 
-app.post('/beheer', express.urlencoded({ extended: true }), (req, res) => {
+// GET /beheer/widget-source — geeft raw widget.html terug (voor lazy loading)
+app.get('/beheer/widget-source', (req, res) => {
+  const pw = req.query.pw || req.headers['x-beheer-pw'];
+  if (pw !== BEHEER_PASSWORD) return res.status(403).send('Geen toegang');
+  try {
+    res.type('text/plain; charset=utf-8').send(loadWidgetHtml());
+  } catch (err) {
+    res.status(500).send('Fout: ' + err.message);
+  }
+});
+
+// POST /beheer — opslaan
+app.post('/beheer', express.urlencoded({ extended: true, limit: '4mb' }), (req, res) => {
   const pw = req.query.pw || req.body.pw || req.headers['x-beheer-pw'];
   if (pw !== BEHEER_PASSWORD) return res.status(403).send('Geen toegang');
 
-  if (req.body.action === 'reset') {
-    customSystemPrompt = null;
-    console.log('🔄 System prompt hersteld naar standaard');
-    return res.send(beheerHtml(DEFAULT_SYSTEM_PROMPT,
-      '<div class="msg ok">✅ Prompt hersteld naar standaard.</div>'));
+  const { tab, action } = req.body;
+
+  // ── System prompt ──
+  if (tab === 'prompt') {
+    if (action === 'reset') {
+      customSystemPrompt = null;
+      saveSettings();
+      console.log('🔄 System prompt hersteld naar standaard');
+      return res.send(beheerHtml({ pw, activeTab: 'ai',
+        message: '<div class="msg msg-ok">✅ Prompt hersteld naar standaard.</div>' }));
+    }
+    const nieuw = (req.body.prompt || '').trim();
+    if (!nieuw) return res.send(beheerHtml({ pw, activeTab: 'ai',
+      message: '<div class="msg msg-err">❌ Prompt mag niet leeg zijn.</div>' }));
+    customSystemPrompt = nieuw;
+    saveSettings();
+    console.log('✏️  System prompt bijgewerkt via beheerpaneel');
+    return res.send(beheerHtml({ pw, activeTab: 'ai',
+      message: '<div class="msg msg-ok">✅ AI-instructies opgeslagen en direct actief.</div>' }));
   }
 
-  const nieuw = (req.body.prompt || '').trim();
-  if (!nieuw) return res.send(beheerHtml(customSystemPrompt || DEFAULT_SYSTEM_PROMPT,
-    '<div class="msg err">❌ Prompt mag niet leeg zijn.</div>'));
+  // ── Widget HTML ──
+  if (tab === 'widget') {
+    if (action === 'reset') {
+      resetWidgetHtml();
+      console.log('🔄 Widget hersteld naar origineel');
+      return res.send(beheerHtml({ pw, activeTab: 'widget',
+        message: '<div class="msg msg-ok">✅ Widget hersteld naar origineel.</div>' }));
+    }
+    const html = (req.body.widgethtml || '').trim();
+    if (!html) return res.send(beheerHtml({ pw, activeTab: 'widget',
+      message: '<div class="msg msg-err">❌ Widget-code mag niet leeg zijn.</div>' }));
+    saveWidgetHtml(html);
+    console.log('🎨 Widget.html bijgewerkt via beheerpaneel');
+    return res.send(beheerHtml({ pw, activeTab: 'widget',
+      message: '<div class="msg msg-ok">✅ Widget opgeslagen en direct actief.</div>' }));
+  }
 
-  customSystemPrompt = nieuw;
-  console.log('✏️  System prompt bijgewerkt via beheerpaneel');
-  res.send(beheerHtml(customSystemPrompt,
-    '<div class="msg ok">✅ Prompt opgeslagen en direct actief.</div>'));
+  res.send(beheerHtml({ pw, message: '<div class="msg msg-err">❌ Onbekende tab.</div>' }));
 });
 
 // Handmatig endpoint: POST /vivino-refresh
@@ -763,9 +960,12 @@ function scheduleNightlyRefresh() {
   }, delay);
 }
 
+loadSettings(); // laad opgeslagen instellingen uit Railway Volume
+
 app.listen(port, () => {
   console.log(`Sommelier proxy draait op http://localhost:${port}`);
   console.log(`Endpoint: POST http://localhost:${port}/advies`);
+  console.log(`Beheerpaneel: http://localhost:${port}/beheer`);
   scheduleNightlyRefresh();
 });
 
