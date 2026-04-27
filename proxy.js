@@ -1203,7 +1203,7 @@ app.get('/beheer/stats-data', (req, res) => {
 });
 
 // POST /beheer/chat — assistent in beheerpaneel
-app.post('/beheer/chat', express.json({ limit: '512kb' }), async (req, res) => {
+app.post('/beheer/chat', express.json({ limit: '2mb' }), async (req, res) => {
   const pw = req.headers['x-beheer-pw'] || req.body.pw;
   if (pw !== BEHEER_PASSWORD) return res.status(403).json({ error: 'Geen toegang' });
 
@@ -1211,9 +1211,9 @@ app.post('/beheer/chat', express.json({ limit: '512kb' }), async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Bericht ontbreekt' });
 
   const currentPrompt = customSystemPrompt || DEFAULT_SYSTEM_PROMPT;
-  // Stuur alleen de eerste 4000 tekens van de widget mee (voldoende voor context)
-  let widgetSnippet = '';
-  try { widgetSnippet = loadWidgetHtml().slice(0, 4000); } catch (_) {}
+  // Volledige widget meesturen zodat de assistent complete, werkende code kan teruggeven
+  let widgetHtml = '';
+  try { widgetHtml = loadWidgetHtml(); } catch (_) {}
 
   const systemMsg = `Je bent een beheerassistent voor de Proef Griekenland sommelier widget. Je helpt de beheerder bij het aanpassen van de AI-instructies en de widget-interface.
 
@@ -1222,24 +1222,24 @@ HUIDIGE AI-INSTRUCTIES (system prompt):
 ${currentPrompt}
 ---
 
-WIDGET HTML (eerste deel):
+VOLLEDIGE WIDGET HTML/CSS/JS:
 ---
-${widgetSnippet}
-...
+${widgetHtml}
 ---
 
 Regels:
 - Antwoord altijd in het Nederlands, vriendelijk en bondig
 - Als je de AI-instructies aanpast: geef de VOLLEDIGE nieuwe prompt tussen <PROMPT> en </PROMPT> tags
 - Als je de widget aanpast: geef de VOLLEDIGE nieuwe widget HTML tussen <WIDGET> en </WIDGET> tags
+- Bij widget-aanpassingen: geef ALTIJD het complete bestand terug, niet alleen het gewijzigde stukje
 - Leg in 1-2 zinnen uit wat je hebt veranderd — BUITEN de tags
 - Stel nooit beide tegelijk voor, tenzij expliciet gevraagd
 - Als je alleen uitleg geeft zonder aanpassing, is dat ook prima`;
 
   try {
     const response = await anthropic.messages.create({
-      model:      'claude-haiku-4-5-20251001',
-      max_tokens: 8000,
+      model:      'claude-sonnet-4-5-20250929', // Sonnet voor betrouwbare code-edits
+      max_tokens: 16000,
       system:     systemMsg,
       messages:   [
         ...history.map(m => ({ role: m.role, content: m.content })),
