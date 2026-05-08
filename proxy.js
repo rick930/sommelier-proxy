@@ -612,6 +612,174 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
    Vivino-koppeling beheer
 ════════════════════════════════════════════════════════ */
 
+// GET /vivino-koppelen — beheerpagina
+app.get('/vivino-koppelen', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vivino koppelen — Proef Griekenland</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f6fa; color: #1a1a2e; min-height: 100vh; }
+  header { background: #1a1a2e; color: #fff; padding: 18px 28px; display: flex; align-items: center; gap: 14px; }
+  header h1 { font-size: 18px; font-weight: 700; }
+  header span { font-size: 22px; }
+  .sub { font-size: 13px; color: rgba(255,255,255,.55); margin-top: 2px; }
+  .container { max-width: 900px; margin: 0 auto; padding: 28px 20px; }
+  .stats-bar { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .stat { background: #fff; border-radius: 10px; padding: 14px 20px; flex: 1; min-width: 140px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .stat .n { font-size: 28px; font-weight: 700; color: #4273bd; }
+  .stat .l { font-size: 12px; color: #888; margin-top: 2px; }
+  .search-bar { display: flex; gap: 10px; margin-bottom: 18px; }
+  .search-bar input { flex: 1; padding: 10px 14px; border: 1px solid #dde; border-radius: 8px; font-size: 14px; }
+  .search-bar select { padding: 10px 12px; border: 1px solid #dde; border-radius: 8px; font-size: 14px; background: #fff; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  thead { background: #1a1a2e; color: #fff; }
+  th { padding: 12px 14px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  td { padding: 11px 14px; font-size: 14px; border-bottom: 1px solid #f0f0f5; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8f9ff; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-ok  { background: #e6f9f0; color: #1a7f4b; }
+  .badge-nee { background: #fff3e0; color: #b85c00; }
+  .badge-widget { background: #e8f0ff; color: #2c55a0; }
+  .score { font-weight: 700; color: #c0392b; }
+  .inp { width: 100%; padding: 7px 10px; border: 1px solid #dde; border-radius: 6px; font-size: 13px; }
+  .inp:focus { outline: none; border-color: #4273bd; box-shadow: 0 0 0 3px rgba(66,115,189,.15); }
+  .btn-save { padding: 7px 14px; background: #4273bd; color: #fff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn-save:hover { background: #3461a8; }
+  .btn-save:disabled { background: #aac; cursor: default; }
+  .ok-icon { color: #1a7f4b; font-size: 16px; }
+  .loading { text-align: center; padding: 60px; color: #888; font-size: 15px; }
+  .error-msg { color: #c0392b; font-size: 12px; margin-top: 4px; }
+  .success-msg { color: #1a7f4b; font-size: 12px; margin-top: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <span>🍇</span>
+  <div>
+    <h1>Vivino koppelen</h1>
+    <div class="sub">Proef Griekenland — Sommelier beheer</div>
+  </div>
+</header>
+<div class="container">
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat"><div class="n" id="st-total">…</div><div class="l">Totaal producten</div></div>
+    <div class="stat"><div class="n" id="st-ok">…</div><div class="l">Gekoppeld</div></div>
+    <div class="stat"><div class="n" id="st-nee">…</div><div class="l">Nog te koppelen</div></div>
+  </div>
+  <div class="search-bar">
+    <input type="text" id="zoek" placeholder="Zoek op productnaam…" oninput="renderTabel()">
+    <select id="filter" onchange="renderTabel()">
+      <option value="alle">Alle producten</option>
+      <option value="nee">Nog te koppelen</option>
+      <option value="ok">Al gekoppeld</option>
+    </select>
+  </div>
+  <div id="tabel-wrap"><div class="loading">Producten laden…</div></div>
+</div>
+
+<script>
+let producten = [];
+
+async function laad() {
+  try {
+    const r = await fetch('/vivino-koppelen/producten');
+    producten = await r.json();
+    document.getElementById('st-total').textContent = producten.length;
+    document.getElementById('st-ok').textContent  = producten.filter(p => p.gekoppeld).length;
+    document.getElementById('st-nee').textContent = producten.filter(p => !p.gekoppeld).length;
+    renderTabel();
+  } catch(e) {
+    document.getElementById('tabel-wrap').innerHTML = '<div class="loading" style="color:#c0392b">Laden mislukt: ' + e.message + '</div>';
+  }
+}
+
+function renderTabel() {
+  const q      = document.getElementById('zoek').value.toLowerCase();
+  const filter = document.getElementById('filter').value;
+  const lijst  = producten.filter(p => {
+    if (q && !p.name.toLowerCase().includes(q)) return false;
+    if (filter === 'ok'  && !p.gekoppeld) return false;
+    if (filter === 'nee' &&  p.gekoppeld) return false;
+    return true;
+  });
+
+  if (!lijst.length) {
+    document.getElementById('tabel-wrap').innerHTML = '<div class="loading">Geen producten gevonden</div>';
+    return;
+  }
+
+  const rijen = lijst.map(p => {
+    const badgeHtml = p.gekoppeld
+      ? \`<span class="badge badge-ok">✓ Gekoppeld <span style="opacity:.6;font-weight:400">via \${p.gekoppeldVia}</span></span>\`
+      : '<span class="badge badge-nee">Nog te koppelen</span>';
+    const idInfo = p.gekoppeld
+      ? \`<div style="font-size:11px;color:#888;margin-top:3px">vintageId: \${p.vintageId||'—'} | wineId: \${p.wineId||'—'}</div>\`
+      : '';
+    return \`<tr id="row-\${p.id}">
+      <td><strong>\${p.name}</strong><br><span style="font-size:11px;color:#aaa">#\${p.id}</span></td>
+      <td>\${badgeHtml}\${idInfo}</td>
+      <td>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="inp" id="inp-\${p.id}" type="text" placeholder="Vivino-URL of ID" value="\${p.vintageId||p.wineId||''}" style="max-width:260px">
+          <button class="btn-save" onclick="opslaan(\${p.id})">Opslaan</button>
+        </div>
+        <div id="msg-\${p.id}"></div>
+      </td>
+    </tr>\`;
+  }).join('');
+
+  document.getElementById('tabel-wrap').innerHTML = \`
+    <table>
+      <thead><tr><th>Product</th><th>Status</th><th>Vivino-koppeling</th></tr></thead>
+      <tbody>\${rijen}</tbody>
+    </table>\`;
+}
+
+async function opslaan(productId) {
+  const inp = document.getElementById('inp-' + productId);
+  const msg = document.getElementById('msg-' + productId);
+  const val = inp.value.trim();
+  if (!val) { msg.className = 'error-msg'; msg.textContent = 'Voer een Vivino-URL of ID in'; return; }
+
+  const btn = document.querySelector('#row-' + productId + ' .btn-save');
+  btn.disabled = true; btn.textContent = 'Opslaan…';
+  msg.textContent = '';
+
+  try {
+    const r = await fetch('/vivino-koppelen/opslaan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId, vivinoInput: val }),
+    });
+    const d = await r.json();
+    if (d.error) {
+      msg.className = 'error-msg'; msg.textContent = '❌ ' + d.error;
+    } else {
+      msg.className = 'success-msg';
+      msg.textContent = '✓ Opgeslagen' + (d.rating ? ' — score: ' + d.rating.score + ' (' + d.rating.count + ' reviews)' : '');
+      // Update lokale data
+      const p = producten.find(x => x.id === productId);
+      if (p) { p.gekoppeld = true; p.gekoppeldVia = 'sommelier'; p.vintageId = d.vintageId; p.wineId = d.wineId; }
+      document.getElementById('st-ok').textContent  = producten.filter(p => p.gekoppeld).length;
+      document.getElementById('st-nee').textContent = producten.filter(p => !p.gekoppeld).length;
+    }
+  } catch(e) {
+    msg.className = 'error-msg'; msg.textContent = '❌ Verbindingsfout: ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Opslaan';
+}
+
+laad();
+</script>
+</body>
+</html>`);
+});
+
 // GET /vivino-koppelen/producten — alle producten met Vivino-status
 app.get('/vivino-koppelen/producten', async (_req, res) => {
   try {
