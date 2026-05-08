@@ -1177,8 +1177,8 @@ const S = {
               ${r.keep ? `<span>🗓️ ${r.keep}</span>` : ''}
             </div>` : ''}
             <div class="s-wc-actions">
-              ${r.url && r.url.startsWith('http') ? `<a href="${r.url}" target="_parent" class="s-wc-btn s-wc-btn-primary">Bekijk wijn →</a>` : ''}
-              ${r.add_to_cart_url && r.add_to_cart_url.startsWith('http') ? `<a href="${r.add_to_cart_url}" target="_parent" class="s-wc-btn s-wc-btn-secondary">🛒 In winkelwagen</a>` : ''}
+              ${r.url && r.url.startsWith('http') ? `<a href="${r.url + (r.url.includes('?') ? '&' : '?')}utm_source=sommelier&utm_medium=widget&utm_campaign=aanbeveling&utm_content=bekijk_wijn&utm_term=${encodeURIComponent((r.name||'').toLowerCase().replace(/\s+/g,'-'))}" target="_parent" class="s-wc-btn s-wc-btn-primary">Bekijk wijn →</a>` : ''}
+              ${r.add_to_cart_url && r.add_to_cart_url.startsWith('http') ? `<a href="${r.add_to_cart_url + (r.add_to_cart_url.includes('?') ? '&' : '?')}utm_source=sommelier&utm_medium=widget&utm_campaign=aanbeveling&utm_content=in_winkelwagen&utm_term=${encodeURIComponent((r.name||'').toLowerCase().replace(/\s+/g,'-'))}" target="_parent" class="s-wc-btn s-wc-btn-secondary">🛒 In winkelwagen</a>` : ''}
             </div>
           </div>
         </div>
