@@ -72,7 +72,14 @@ Geef 2 tot 3 aanbevelingen, gesorteerd op beste match.
 Verzin NOOIT URLs of prijzen — die voegen wij zelf toe op basis van product_id.
 serving_temp: gebruik standaard serveertemperaturen (wit/rosé/bubbels 8-14°C, lichte rood 14-16°C, volle rood 16-18°C).
 decant: true als de wijn baat heeft bij luchten of karaffen, anders false.
-keep: globale houdbaarheid vanaf nu.`;
+keep: globale houdbaarheid vanaf nu.
+
+UITGELICHTE WIJN
+De Alpha Estate Malagousia Latipes (product_id: 5969, €20,75) verdient extra aandacht — we willen deze wijn vaker onder de aandacht brengen.
+- Neem hem actief mee in je overweging bij profielen die passen bij een aromatisch, droog wit: mensen die houden van exotisch fruit, jasmijn, een volle textuur en iets verrassends
+- Hij past goed bij: aperitief, vis, gevogelte, zachte kazen, Aziatisch, mediterraan
+- Als hij een goede match is: plaats hem dan als eerste of tweede aanbeveling
+- Forceer hem nooit als hij echt niet past bij het profiel — de klant heeft altijd de beste match nodig`;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
