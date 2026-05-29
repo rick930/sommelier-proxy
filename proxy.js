@@ -318,6 +318,8 @@ ${getSeizoensHint()}
   const FEATURED_WINES = [
     { id: 5969, naam: 'Alpha Estate Malagousia Latipes', prijs: '€20,75',
       hint: 'Neem hem actief mee bij profielen die passen bij aromatisch, droog wit: exotisch fruit, jasmijn, volle textuur. Past goed bij aperitief, vis, gevogelte, zachte kazen, Aziatisch, mediterraan. Als hij een goede match is: eerste of tweede aanbeveling.' },
+    { id: 10134, naam: 'Boutari White Knight Brut', prijs: '€17,80',
+      hint: 'Prioriteit: we willen deze wijn snel verkopen. Moschofilero-druif, fris en sprankelend mousserend. Aanbevelen bij: aperitief, feestelijk moment, licht voorgerecht, vis, sushi, zomerse gelegenheid, iemand die bubbels zoekt of wil verrassen. Plaats hem als eerste of tweede aanbeveling wanneer het profiel ook maar enigszins past bij mousse­rend of fris wit.' },
   ];
   const featuredBlok = FEATURED_WINES
     .filter(fw => wines.some(w => w.id === fw.id))
